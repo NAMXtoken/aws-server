@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="en">
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+
+    <head>
+        <title>google oauth</title>
+    </head>
+
+    <body>
+        Redirecting…
+        <script>
+            ;(function () {
+                var params = window.location.search.replace(/^\?/, '')
+                var fragment = window.location.hash.replace(/^#/, '')
+                var combined = params
+                if (fragment) {
+                    combined += (combined ? '&' : '') + fragment
+                }
+                var target = 'byndpos://auth' + (combined ? '?' + combined : '')
+                window.location.replace(target)
+            })()
+        </script>
+    </body>
+</html>
