@@ -77,8 +77,8 @@ export default function DailySalesChart({
             labels: {
                 formatter: (value) => {
                     const numeric = Number(value)
-                    if (!Number.isFinite(numeric)) return value
-                    return numeric % 2 === 0 ? value : ''
+                    if (!Number.isFinite(numeric)) return String(value)
+                    return numeric % 2 === 0 ? String(value) : ''
                 },
             },
         },

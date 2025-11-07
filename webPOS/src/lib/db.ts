@@ -16,7 +16,7 @@ import type {
     TenantConfigRow,
 } from '@/types/db'
 
-class PosDatabase extends Dexie {
+export class PosDatabase extends Dexie {
     tickets!: Table<Ticket, string>
     ticket_items!: Table<TicketItem, string>
     inventory_events!: Table<InventoryEvent, string>
@@ -261,6 +261,18 @@ class PosDatabase extends Dexie {
 }
 
 export const db = new PosDatabase()
+
+if (typeof window !== 'undefined') {
+    void import('./native-cache-sync')
+        .then((mod) => {
+            if (typeof mod.startNativeCacheSync === 'function') {
+                mod.startNativeCacheSync(db)
+            }
+        })
+        .catch(() => {
+            // Native cache sync is optional; ignore failures to keep Dexie usable.
+        })
+}
 
 const OPEN_TICKETS_BACKUP_DELAY_MS = 1000
 let openTicketsBackupTimer: number | null = null

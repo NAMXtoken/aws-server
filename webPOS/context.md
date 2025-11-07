@@ -80,3 +80,8 @@
 06/11 13:35 conversation-unknown Reworked ESLint flat config via FlatCompat and cleaned unused disables so pnpm lint passes on Next 16.
 06/11 13:47 conversation-unknown Elevated globals.css with consistent typography, selection, focus, and motion defaults for production polish.
 06/11 14:04 conversation-unknown Extended gradient glass aesthetic across admin/full-width layouts with reusable surfaces and backdrop utilities.
+07/11 13:33 conversation-unknown Mirrored Dexie tables with Android native cache bridge and auto-synced Dexie changes via window.ByndNativeCache integration.
+07/11 17:35 conversation-unknown Synced GOOGLE_CLIENT_* env vars with the web client credentials from .variables for both server and browser bundles.
+07/11 21:26 conversation-unknown Updated webPOS .env URLs to use simplesite.space for auth/sign-in routes and clock base since the frontend moved off bynd-web-app.
+07/11 22:15 conversation-unknown Added safe-area CSS + viewport-fit=cover so the web app adds top/side padding matching Android status/nav bars.
+07/11 22:25 conversation-unknown Limited webPOS safe-area padding to top/bottom only so landscape no longer adds extra left/right gutter.
