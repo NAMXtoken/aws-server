@@ -369,7 +369,7 @@ export default function UserDropdown() {
                             fill=""
                         />
                     </svg>
-                    Sign out
+                    Sign out of Google
                 </DropdownItem>
             </Dropdown>
             <TenantContextModal

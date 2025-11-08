@@ -79,7 +79,7 @@ export default function SignInForm() {
         setGoogleLoading(true)
         logClockSkew()
         try {
-            await signIn('google', { callbackUrl: '/sales' })
+            await signIn('google', { callbackUrl: '/lock' })
         } catch (error) {
             console.error('Google sign-in failed', error)
         } finally {
@@ -105,7 +105,7 @@ export default function SignInForm() {
                             Sign In
                         </h1>
                         <p className="text-sm text-gray-500 dark:text-gray-400">
-                            Enter your email and password to sign in!
+                            Sign in to reach the PIN keypad and unlock the POS.
                         </p>
                     </div>
                     <div>

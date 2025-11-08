@@ -1,7 +1,7 @@
 // Google Apps Script backend for Bynd POS
 // Creates/ensures Drive folders, Spreadsheets, and daily Sheets on shift open.
 
-const ROOT_FOLDER_NAME = 'Bynd POS'
+const ROOT_FOLDER_NAME = 'byndPOS'
 const MONTH_TEMPLATE_SPREADSHEET_ID =
     '1K6TR3wN4l6fvoKtEHGnotCCYE2Iq0UzKWKw-RZDGicI'
 const SETTINGS_SPREADSHEET_NAME = 'Settings'

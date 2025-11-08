@@ -4,7 +4,6 @@ import { useSidebar } from '@/context/SidebarContext'
 import { useSyncQueue } from '@/hooks/use-sync-queue'
 import AppHeader from '@/layout/AppHeader'
 import AppSidebar from '@/layout/AppSidebar'
-import Backdrop from '@/layout/Backdrop'
 import MobileBottomNav from '@/layout/MobileBottomNav'
 import { useRouter } from 'next/navigation'
 import React from 'react'
@@ -19,7 +18,7 @@ export default function AdminLayoutClient({
     children,
     initialRole,
 }: AdminLayoutClientProps) {
-    const { isExpanded, isHovered, isMobileOpen } = useSidebar()
+    const { isExpanded, isHovered, isMobile } = useSidebar()
     const router = useRouter()
     const [role, setRole] = React.useState<'admin' | 'limited' | null>(
         initialRole
@@ -99,30 +98,44 @@ export default function AdminLayoutClient({
 
     const isLimitedRole = role === 'limited'
 
-    const mainContentMargin = isLimitedRole
+    const handleSoftLogout = React.useCallback(() => {
+        if (typeof document !== 'undefined') {
+            ;['unlocked', 'role', 'pin', 'name'].forEach((cookie) => {
+                document.cookie = `${cookie}=; path=/; max-age=0`
+            })
+        }
+        router.push('/lock')
+    }, [router])
+
+    const mainContentMargin = isMobile
         ? 'ml-0'
-        : isMobileOpen
-          ? 'ml-0'
-          : isExpanded || isHovered
-            ? 'lg:ml-[290px]'
-            : 'lg:ml-[90px]'
+        : isExpanded || isHovered
+          ? 'lg:ml-[290px]'
+          : 'lg:ml-[90px]'
 
     return (
         <div className="min-h-screen xl:flex">
-            {/* Sidebar and Backdrop */}
-            {!isLimitedRole && (
-                <>
-                    <AppSidebar role={role} />
-                    <Backdrop />
-                </>
-            )}
+            {/* Sidebar */}
+            {!isMobile && <AppSidebar role={role} />}
             {/* Main Content Area */}
             <div
                 className={`relative flex-1 transition-all duration-300 ease-in-out ${mainContentMargin}`}
             >
-                <div className="app-backdrop" aria-hidden="true" />
                 {/* Header */}
                 <AppHeader role={role} />
+                <div className="flex justify-end px-4 pt-2 sm:px-6 md:px-8 lg:px-10">
+                    <button
+                        type="button"
+                        onClick={handleSoftLogout}
+                        className="rounded-full border border-gray-200 px-4 py-1.5 text-sm font-medium text-gray-600 transition hover:border-gray-400 hover:text-gray-800 dark:border-gray-700 dark:text-gray-300 dark:hover:border-gray-500 dark:hover:text-white"
+                    >
+                        Log out
+                    </button>
+                </div>
+                <div
+                    id="page-toolbar-slot"
+                    className="page-toolbar-slot sticky top-[4.75rem] z-40 px-4 pt-2 pb-2 sm:px-6 md:px-8 lg:px-10"
+                />
                 {/* Page Content */}
                 <div className="page-shell">
                     <div className="app-surface overflow-hidden p-4 sm:p-6 md:p-8 lg:p-10">

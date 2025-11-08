@@ -81,7 +81,36 @@
 06/11 13:47 conversation-unknown Elevated globals.css with consistent typography, selection, focus, and motion defaults for production polish.
 06/11 14:04 conversation-unknown Extended gradient glass aesthetic across admin/full-width layouts with reusable surfaces and backdrop utilities.
 07/11 13:33 conversation-unknown Mirrored Dexie tables with Android native cache bridge and auto-synced Dexie changes via window.ByndNativeCache integration.
+07/11 16:48 conversation-unknown Split sign-up wizard to /get-started, kept landing hero single-column with sign-in/guest CTA, and wired new sign-up link below the buttons.
+07/11 16:53 conversation-unknown Trimmed onboarding copy, added minimalist sign-up route without inline instructions, and tightened landing hero messaging.
+07/11 17:32 conversation-unknown Centered landing hero content to match the narrower access card width for desktop layouts.
+07/11 17:42 conversation-unknown Added dedicated log-out button under AppHeader for PIN resets and clarified dropdown sign-out as Google logout.
+07/11 17:44 conversation-unknown Fixed MobileBottomNav hydration by deferring cookie role detection until after mount.
+07/11 18:06 conversation-unknown Kept / available even when authenticated and added explicit “Open lock screen” CTA instead of auto-redirecting.
+07/11 18:14 conversation-unknown Added NEXT_WEBPACK_HMR_SOCKET_* overrides in .env.local so dev HMR works via simplesite.space tunnel.
 07/11 17:35 conversation-unknown Synced GOOGLE_CLIENT_* env vars with the web client credentials from .variables for both server and browser bundles.
 07/11 21:26 conversation-unknown Updated webPOS .env URLs to use simplesite.space for auth/sign-in routes and clock base since the frontend moved off bynd-web-app.
 07/11 22:15 conversation-unknown Added safe-area CSS + viewport-fit=cover so the web app adds top/side padding matching Android status/nav bars.
 07/11 22:25 conversation-unknown Limited webPOS safe-area padding to top/bottom only so landscape no longer adds extra left/right gutter.
+07/11 20:42 019a449b-77da-75b0-a7c3-3a2b65e607b3 Disabled the sidebar on sub-lg breakpoints and kept the desktop layout spacing logic so wide screens still get the collapsible nav.
+07/11 20:43 019a449b-77da-75b0-a7c3-3a2b65e607b3 Re-enabled the desktop sidebar for limited-role sessions so every non-mobile user keeps the collapsible navigation rail.
+07/11 20:47 019a449b-77da-75b0-a7c3-3a2b65e607b3 Hid the gradient app-backdrop on mobile layouts so handheld pages no longer get the unintended dark filter.
+07/11 20:49 019a449b-77da-75b0-a7c3-3a2b65e607b3 Removed the app-backdrop overlay entirely to eliminate the half-screen gradient artifact on larger displays.
+07/11 21:03 019a449b-77da-75b0-a7c3-3a2b65e607b3 Wired the /get-started wizard into a Supabase-backed onboarding API so owner/sub-tenant personas persist across Dexie, native cache, and remote storage.
+07/11 21:06 019a449b-77da-75b0-a7c3-3a2b65e607b3 Fixed onboarding API UUID handling so tenant/member upserts always supply valid IDs when hashing emails.
+07/11 21:08 019a449b-77da-75b0-a7c3-3a2b65e607b3 Stopped populating tenants.owner_user_id so Supabase no longer enforces foreign key rows we can’t mint from the wizard.
+07/11 21:12 019a449b-77da-75b0-a7c3-3a2b65e607b3 Disabled tenant_members upserts until Auth-backed users exist, keeping the onboarding API green while still recording tenant metadata.
+07/11 21:21 019a449b-77da-75b0-a7c3-3a2b65e607b3 Added a page-toolbar slot plus portal-backed category rail so the POS filters float above the menu grid while the order summary stays sticky on desktop.
+07/11 21:46 019a449b-77da-75b0-a7c3-3a2b65e607b3 Made the toolbar slot itself sticky so the category rail truly stays pinned while the POS grid scrolls underneath.
+07/11 22:21 019a449b-77da-75b0-a7c3-3a2b65e607b3 Moved the category rail back inside the menu card with an internal sticky header (and matched the ticket summary offset) so both sections scroll naturally until pinning under the AppHeader.
+07/11 22:34 019a449b-77da-75b0-a7c3-3a2b65e607b3 Wrapped the menu grid in its own rounded card so the rail and items share the same surface, matching the ticket summary card styling.
+07/11 23:29 session-20241107 Audited package.json dependencies with depcheck/manual search to list unused modules; no code changes applied yet.
+07/11 23:33 session-20241107 Removed unused runtime deps from package.json and shifted lint/postcss plugins to devDependencies to keep install lean.
+
+07/11 23:49 conversation-unknown Added Supabase schema + migration for daily_events and shift_summaries to unblock GAS replication errors.
+
+08/11 00:13 conversation-unknown Moved the sales category rail above the menu grid so it lives in the parent card and spans the full page width.
+
+08/11 00:17 conversation-unknown Cleaned sales TicketView markup to fix build break and removed the disabled overlay styling so menu cards stay bright even without an open shift.
+
+08/11 00:18 conversation-unknown Replaced stray fragments in TicketView with div wrappers so the sales page parses cleanly in Next build.

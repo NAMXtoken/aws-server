@@ -957,3 +957,10 @@ span.flatpickr-weekday,
     opacity: 0.8;
     cursor: grabbing; /* Changes the cursor to indicate dragging */
 }
+
+@layer base {
+    .landing-access-card {
+        width: 100%;
+        max-width: 420px;
+    }
+}

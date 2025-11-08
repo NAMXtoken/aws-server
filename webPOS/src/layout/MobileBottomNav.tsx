@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import React, { useMemo, useState } from 'react'
+import React, { useEffect, useMemo, useState } from 'react'
 
 import { GridIcon, ListIcon, TimeIcon } from '@/icons'
 import {
@@ -32,7 +32,11 @@ const deriveRoleFromCookies = (): Role => {
 
 const MobileBottomNav: React.FC = () => {
     const pathname = usePathname()
-    const [role] = useState<Role>(() => deriveRoleFromCookies())
+    const [role, setRole] = useState<Role>(null)
+
+    useEffect(() => {
+        setRole(deriveRoleFromCookies())
+    }, [])
 
     const navItems = useMemo<BottomNavItem[]>(() => {
         const effectiveRole = role

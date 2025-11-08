@@ -1623,165 +1623,179 @@ export function TicketView() {
         )
     }
 
-    return (
-        <div className="sm:py-6">
-            <div className="grid grid-cols-12 gap-4">
-                <div className="col-span-12 lg:col-span-8">
-                    <div className="sticky top-[4.75rem] z-30 mb-3 pb-3">
-                        <div className="mx-1 space-y-3 pt-2 md:mx-0 md:space-y-0 md:pt-0">
-                            {showNavGrid && (
-                                <div className="md:hidden px-1">
-                                    <MobileNavGrid />
-                                </div>
-                            )}
-                            <div className="px-4 md:px-0">
-                                <div className="overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-                                    <div className="inline-flex h-11 w-full flex-nowrap gap-0.5 rounded-lg bg-gray-100 p-0.5 sm:w-auto lg:min-w-fit dark:bg-gray-900">
-                                        <button
-                                            className={`h-10 flex-1 rounded-md px-2 py-2 text-xs font-medium transition whitespace-nowrap focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-primary/40 focus-visible:ring-offset-1 focus-visible:ring-offset-gray-100 dark:focus-visible:ring-offset-gray-900 sm:px-3 sm:text-sm lg:flex-initial ${
-                                                activeCategory === undefined
-                                                    ? 'shadow-theme-xs bg-white text-gray-900 dark:bg-gray-800 dark:text-white'
-                                                    : 'text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white'
-                                            }`}
-                                            onClick={() =>
-                                                setActiveCategory(undefined)
-                                            }
-                                        >
-                                            All
-                                        </button>
-                                        {categories.map((c) => {
-                                            const isActive =
-                                                normalize(activeCategory) ===
-                                                normalize(categoryKey(c))
-                                            return (
-                                                <button
-                                                    key={c.id}
-                                                    className={`h-10 flex-1 rounded-md px-2 py-2 text-xs font-medium transition whitespace-nowrap focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-primary/40 focus-visible:ring-offset-1 focus-visible:ring-offset-gray-100 dark:focus-visible:ring-offset-gray-900 sm:px-3 sm:text-sm lg:flex-initial ${
-                                                        isActive
-                                                            ? 'shadow-theme-xs bg-white text-gray-900 dark:bg-gray-800 dark:text-white'
-                                                            : 'text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white'
-                                                    }`}
-                                                    onClick={() =>
-                                                        setActiveCategory(
-                                                            categoryKey(c) ?? ''
-                                                        )
-                                                    }
-                                                >
-                                                    {c.label}
-                                                </button>
-                                            )
-                                        })}
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
+    const categoryRail = (
+        <div className="sticky top-[5.25rem] z-30 rounded-2xl border border-gray-200 bg-white/95 px-3 py-3 shadow-md backdrop-blur dark:border-gray-800/80 dark:bg-gray-900/90 sm:px-4 lg:px-6">
+            <div className="mx-1 space-y-3 md:mx-0 md:space-y-0">
+                {showNavGrid && (
+                    <div className="md:hidden px-1">
+                        <MobileNavGrid />
                     </div>
-
-                    <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4">
-                        {itemsForCategory.map((item) => (
+                )}
+                <div className="px-4 md:px-0">
+                    <div className="overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+                        <div className="inline-flex h-11 w-full flex-nowrap gap-0.5 rounded-lg bg-gray-100 p-0.5 sm:w-auto lg:min-w-fit dark:bg-gray-900">
                             <button
-                                key={item.id}
-                                type="button"
-                                className={`group relative flex h-full flex-col overflow-hidden rounded-lg border border-gray-200 bg-white text-left shadow hover:bg-gray-50 dark:border-gray-800 dark:bg-gray-900 dark:hover:bg-gray-800 ${
-                                    selectedTicket
-                                        ? ''
-                                        : 'opacity-75 hover:bg-white dark:hover:bg-gray-900'
+                                className={`h-10 flex-1 rounded-md px-2 py-2 text-xs font-medium transition whitespace-nowrap focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-primary/40 focus-visible:ring-offset-1 focus-visible:ring-offset-gray-100 dark:focus-visible:ring-offset-gray-900 sm:px-3 sm:text-sm lg:flex-initial ${
+                                    activeCategory === undefined
+                                        ? 'shadow-theme-xs bg-white text-gray-900 dark:bg-gray-800 dark:text-white'
+                                        : 'text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white'
                                 }`}
-                                onClick={() => handleMenuItemSelect(item)}
-                                aria-disabled={!selectedTicket}
+                                onClick={() => setActiveCategory(undefined)}
                             >
-                                <div className="w-full bg-gray-100 dark:bg-gray-800 aspect-square">
-                                    {item.image ? (
-                                        <img
-                                            src={item.image}
-                                            alt={item.name}
-                                            width={320}
-                                            height={320}
-                                            className="block h-full w-full object-cover"
-                                            style={{ aspectRatio: '1 / 1' }}
-                                        />
-                                    ) : (
-                                        <div className="flex h-full w-full items-center justify-center text-xs text-gray-400 dark:text-gray-500">
-                                            No image
-                                        </div>
-                                    )}
-                                    {(() => {
-                                        const q = qtyByItemId[item.id] || 0
-                                        return q > 0 ? (
-                                            <span className="absolute right-2 top-2 z-10 inline-flex min-h-[1.25rem] min-w-[1.25rem] items-center justify-center rounded-full bg-red-600 px-1.5 text-xs font-semibold leading-none text-white shadow">
-                                                {q}
-                                            </span>
-                                        ) : null
-                                    })()}
-                                </div>
-                                <div className="p-3">
-                                    <div className="truncate text-sm font-medium text-gray-900 dark:text-gray-100">
-                                        {item.name}
-                                    </div>
-                                    <div className="text-xs text-gray-500 dark:text-gray-400">
-                                        {formatCurrency(item.price)}
-                                    </div>
-                                </div>
+                                All
                             </button>
-                        ))}
-                        {itemsForCategory.length === 0 && (
-                            <div className="col-span-full text-sm text-gray-500 dark:text-gray-400">
-                                No items in this category.
-                            </div>
-                        )}
-                    </div>
-                </div>
-
-                <div className="col-span-12 lg:col-span-4">
-                    <div className="hidden rounded-lg border border-gray-200 bg-white shadow-sm dark:border-gray-800 dark:bg-gray-900 lg:block">
-                        <div className="border-b border-gray-200 p-4 dark:border-gray-800">
-                            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                                <h3 className="text-sm font-medium text-gray-700 dark:text-gray-200">
-                                    Order#:{' '}
-                                    {activeTicket
-                                        ? activeTicketLabel || 'Ticket'
-                                        : 'Ticket'}
-                                </h3>
-                                <div className="flex flex-wrap items-center gap-2 text-xs text-gray-500 dark:text-gray-300">
-                                    <span className="inline-flex items-center gap-1 rounded-md bg-gray-100 px-2 py-1 text-xs text-gray-600 dark:bg-gray-800/60 dark:text-gray-200">
-                                        Covers:{' '}
-                                        <span className="font-medium text-gray-800 dark:text-gray-100">
-                                            {coversDisplay != null
-                                                ? coversDisplay
-                                                : '--'}
-                                        </span>
-                                    </span>
-                                    <span
-                                        className="inline-flex max-w-[14rem] items-center gap-1 rounded-md bg-gray-100 px-2 py-1 text-xs text-gray-600 dark:bg-gray-800/60 dark:text-gray-200"
-                                        title={
-                                            notePreview
-                                                ? (activeTicket?.notes ?? '')
-                                                : 'No notes'
+                            {categories.map((c) => {
+                                const isActive =
+                                    normalize(activeCategory) ===
+                                    normalize(categoryKey(c))
+                                return (
+                                    <button
+                                        key={c.id}
+                                        className={`h-10 flex-1 rounded-md px-2 py-2 text-xs font-medium transition whitespace-nowrap focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-primary/40 focus-visible:ring-offset-1 focus-visible:ring-offset-gray-100 dark:focus-visible:ring-offset-gray-900 sm:px-3 sm:text-sm lg:flex-initial ${
+                                            isActive
+                                                ? 'shadow-theme-xs bg-white text-gray-900 dark:bg-gray-800 dark:text-white'
+                                                : 'text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white'
+                                        }`}
+                                        onClick={() =>
+                                            setActiveCategory(
+                                                categoryKey(c) ?? ''
+                                            )
                                         }
                                     >
-                                        Note:{' '}
-                                        <span className="font-medium text-gray-800 dark:text-gray-100">
-                                            {notePreview ?? '--'}
-                                        </span>
-                                    </span>
+                                        {c.label}
+                                    </button>
+                                )
+                            })}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    )
+
+    return (
+        <div className="contents">
+            <div className="sm:py-6">
+                <div className="px-2 sm:px-3 lg:px-6">
+                    <div className="space-y-4">
+                        {categoryRail}
+                        <div className="grid grid-cols-12 gap-4">
+                            <div className="col-span-12 lg:col-span-8">
+                                <div className="rounded-2xl border border-gray-200 bg-white/95 p-3 shadow-sm ring-1 ring-black/5 dark:border-gray-800/70 dark:bg-gray-950/70 dark:ring-white/10 sm:p-4 lg:p-6">
+                                    <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4">
+                                        {itemsForCategory.map((item) => (
+                                            <button
+                                                key={item.id}
+                                                type="button"
+                                                className="group relative flex h-full flex-col overflow-hidden rounded-lg border border-gray-200 bg-white text-left shadow transition hover:bg-gray-50 dark:border-gray-800 dark:bg-gray-900 dark:hover:bg-gray-800"
+                                                onClick={() =>
+                                                    handleMenuItemSelect(item)
+                                                }
+                                                aria-disabled={!selectedTicket}
+                                            >
+                                                <div className="w-full bg-gray-100 dark:bg-gray-800 aspect-square">
+                                                    {item.image ? (
+                                                        <img
+                                                            src={item.image}
+                                                            alt={item.name}
+                                                            width={320}
+                                                            height={320}
+                                                            className="block h-full w-full object-cover"
+                                                            style={{
+                                                                aspectRatio:
+                                                                    '1 / 1',
+                                                            }}
+                                                        />
+                                                    ) : (
+                                                        <div className="flex h-full w-full items-center justify-center text-xs text-gray-400 dark:text-gray-500">
+                                                            No image
+                                                        </div>
+                                                    )}
+                                                    {(() => {
+                                                        const q =
+                                                            qtyByItemId[
+                                                                item.id
+                                                            ] || 0
+                                                        return q > 0 ? (
+                                                            <span className="absolute right-2 top-2 z-10 inline-flex min-h-[1.25rem] min-w-[1.25rem] items-center justify-center rounded-full bg-red-600 px-1.5 text-xs font-semibold leading-none text-white shadow">
+                                                                {q}
+                                                            </span>
+                                                        ) : null
+                                                    })()}
+                                                </div>
+                                                <div className="p-3">
+                                                    <div className="truncate text-sm font-medium text-gray-900 dark:text-gray-100">
+                                                        {item.name}
+                                                    </div>
+                                                    <div className="text-xs text-gray-500 dark:text-gray-400">
+                                                        {formatCurrency(
+                                                            item.price
+                                                        )}
+                                                    </div>
+                                                </div>
+                                            </button>
+                                        ))}
+                                        {itemsForCategory.length === 0 && (
+                                            <div className="col-span-full text-sm text-gray-500 dark:text-gray-400">
+                                                No items in this category.
+                                            </div>
+                                        )}
+                                    </div>
                                 </div>
                             </div>
-                        </div>
-                        <div className="p-4 space-y-4">
-                            {activeTicket ? (
-                                <></>
-                            ) : (
-                                <div className="text-sm text-gray-500 dark:text-gray-400">
-                                    Add menu items to the ticket.
-                                </div>
-                            )}
-                            {activeTicket ? (
-                                ticketCart.length === 0 ? (
-                                    <div className="text-sm text-gray-500 dark:text-gray-400">
-                                        No items added.
+
+                            <div className="col-span-12 lg:col-span-4">
+                                <div className="hidden rounded-lg border border-gray-200 bg-white shadow-sm dark:border-gray-800 dark:bg-gray-900 lg:block lg:sticky lg:top-[5.25rem]">
+                                    <div className="border-b border-gray-200 p-4 dark:border-gray-800">
+                                        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                                            <h3 className="text-sm font-medium text-gray-700 dark:text-gray-200">
+                                                Order#:{' '}
+                                                {activeTicket
+                                                    ? activeTicketLabel ||
+                                                      'Ticket'
+                                                    : 'Ticket'}
+                                            </h3>
+                                            <div className="flex flex-wrap items-center gap-2 text-xs text-gray-500 dark:text-gray-300">
+                                                <span className="inline-flex items-center gap-1 rounded-md bg-gray-100 px-2 py-1 text-xs text-gray-600 dark:bg-gray-800/60 dark:text-gray-200">
+                                                    Covers:{' '}
+                                                    <span className="font-medium text-gray-800 dark:text-gray-100">
+                                                        {coversDisplay != null
+                                                            ? coversDisplay
+                                                            : '--'}
+                                                    </span>
+                                                </span>
+                                                <span
+                                                    className="inline-flex max-w-[14rem] items-center gap-1 rounded-md bg-gray-100 px-2 py-1 text-xs text-gray-600 dark:bg-gray-800/60 dark:text-gray-200"
+                                                    title={
+                                                        notePreview
+                                                            ? (
+                                                                  activeTicket?.notes ??
+                                                                  ''
+                                                              )
+                                                            : 'No notes'
+                                                    }
+                                                >
+                                                    Note:{' '}
+                                                    <span className="font-medium text-gray-800 dark:text-gray-100">
+                                                        {notePreview ?? '--'}
+                                                    </span>
+                                                </span>
+                                            </div>
+                                        </div>
                                     </div>
-                                ) : (
-                                    <div className="space-y-3">
+                                    <div className="p-4 space-y-4">
+                                        {activeTicket ? null : (
+                                            <div className="text-sm text-gray-500 dark:text-gray-400">
+                                                Add menu items to the ticket.
+                                            </div>
+                                        )}
+                                        {activeTicket ? (
+                                            ticketCart.length === 0 ? (
+                                                <div className="text-sm text-gray-500 dark:text-gray-400">
+                                                    No items added.
+                                                </div>
+                                            ) : (
+                                                <div className="space-y-3">
                                         {ticketCart.map((ci, idx) => (
                                             <div
                                                 key={`${ci.id}-${idx}`}
@@ -2116,64 +2130,66 @@ export function TicketView() {
                             </div>
                         </div>
                     ) : null}
+                </div>
+            </div>
+            </div>
 
-                    <Modal
-                        isOpen={openTicketPromptOpen}
-                        onClose={() => {
-                            setOpenTicketPromptOpen(false)
-                            resetPendingMenuIntent()
-                        }}
-                        className="max-w-sm !min-h-[14rem]"
-                        bodyClassName="gap-0 px-5 py-5 sm:px-6 sm:py-6"
-                    >
-                        <div className="flex-1 space-y-2">
-                            <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
-                                Open a ticket?
-                            </h3>
-                            <p className="text-sm text-gray-500 dark:text-gray-400">
-                                You'll need an open ticket to add{' '}
-                                {pendingMenuItem?.name ?? 'this item'}.
-                            </p>
-                        </div>
-                        <div className="mt-auto flex justify-end gap-3 pt-4">
-                            <Button
-                                variant="outline"
-                                onClick={() => {
-                                    setOpenTicketPromptOpen(false)
-                                    resetPendingMenuIntent()
-                                }}
-                            >
-                                Cancel
-                            </Button>
-                            <Button
-                                variant="primary"
-                                onClick={() => {
-                                    if (creatingTicket || !pendingMenuItem)
-                                        return
-                                    setOpenTicketPromptOpen(false)
-                                    setPendingMenuAutoAdd(true)
-                                    void handleNewTicket()
-                                }}
-                                disabled={creatingTicket}
-                            >
-                                {creatingTicket ? 'Opening…' : 'Open Ticket'}
-                            </Button>
-                        </div>
-                    </Modal>
+            <Modal
+            isOpen={openTicketPromptOpen}
+            onClose={() => {
+                setOpenTicketPromptOpen(false)
+                resetPendingMenuIntent()
+            }}
+            className="max-w-sm !min-h-[14rem]"
+            bodyClassName="gap-0 px-5 py-5 sm:px-6 sm:py-6"
+        >
+            <div className="flex-1 space-y-2">
+                <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+                    Open a ticket?
+                </h3>
+                <p className="text-sm text-gray-500 dark:text-gray-400">
+                    You'll need an open ticket to add{' '}
+                    {pendingMenuItem?.name ?? 'this item'}.
+                </p>
+            </div>
+            <div className="mt-auto flex justify-end gap-3 pt-4">
+                <Button
+                    variant="outline"
+                    onClick={() => {
+                        setOpenTicketPromptOpen(false)
+                        resetPendingMenuIntent()
+                    }}
+                >
+                    Cancel
+                </Button>
+                <Button
+                    variant="primary"
+                    onClick={() => {
+                        if (creatingTicket || !pendingMenuItem) return
+                        setOpenTicketPromptOpen(false)
+                        setPendingMenuAutoAdd(true)
+                        void handleNewTicket()
+                    }}
+                    disabled={creatingTicket}
+                >
+                    {creatingTicket ? 'Opening…' : 'Open Ticket'}
+                </Button>
+            </div>
+            </Modal>
 
-                    <Modal
-                        isOpen={newTicketDialogOpen}
-                        onClose={() => {
-                            if (!newTicketSubmitting) {
-                                setNewTicketDialogOpen(false)
-                                resetPendingMenuIntent()
-                            }
-                        }}
-                        className="max-w-sm p-6"
-                    >
-                        <div className="space-y-4">
-                            <div>
-                                <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+            <Modal
+            isOpen={newTicketDialogOpen}
+            onClose={() => {
+                if (!newTicketSubmitting) {
+                    setNewTicketDialogOpen(false)
+                    resetPendingMenuIntent()
+                }
+            }}
+            className="max-w-sm p-6"
+        >
+            <div className="space-y-4">
+                <div>
+                    <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
                                     Open Ticket
                                 </h3>
                                 <p className="text-sm text-gray-500 dark:text-gray-400">
@@ -2630,8 +2646,6 @@ export function TicketView() {
                             </div>
                         </div>
                     </Modal>
-                </div>
-            </div>
         </div>
     )
 }
