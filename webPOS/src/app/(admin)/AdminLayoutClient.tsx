@@ -138,8 +138,9 @@ export default function AdminLayoutClient({
                 />
                 {/* Page Content */}
                 <div className="page-shell">
-                    <div className="app-surface overflow-hidden p-4 sm:p-6 md:p-8 lg:p-10">
-                        {children}
+                         <div>
+          {/**<div className="app-surface overflow-hidden p-4 sm:p-6 md:p-8 lg:p-10">**/}     
+                   {children}
                     </div>
                 </div>
             </div>

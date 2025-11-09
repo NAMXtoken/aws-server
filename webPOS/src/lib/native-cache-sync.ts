@@ -17,6 +17,16 @@ type DexieChange = {
 }
 
 const startedDbs = new WeakSet<PosDatabase>()
+type DexieChangesEvent = {
+    subscribe: (handler: (changes: DexieChange[]) => void) => void
+    unsubscribe?: (handler: (changes: DexieChange[]) => void) => void
+}
+type DexieOnWithChanges = ((
+    event: string,
+    handler: (changes: DexieChange[]) => void
+) => void) & {
+    changes?: DexieChangesEvent
+}
 
 export async function startNativeCacheSync(db: PosDatabase) {
     if (startedDbs.has(db) || typeof window === 'undefined') {
@@ -88,10 +98,22 @@ export async function startNativeCacheSync(db: PosDatabase) {
         }
     }
 
-    ;(db.on as unknown as (event: string, handler: (changes: DexieChange[]) => void) => void)(
-        'changes',
-        handleChanges
-    )
+    const dexieOn = db.on as DexieOnWithChanges | undefined
+    const changesEvent = dexieOn?.changes
+
+    if (changesEvent && typeof changesEvent.subscribe === 'function') {
+        changesEvent.subscribe(handleChanges)
+        return
+    }
+
+    try {
+        dexieOn?.('changes', handleChanges)
+    } catch (error) {
+        console.warn(
+            '[native-cache-sync] Dexie changes hook unavailable; skipping live native cache sync',
+            error
+        )
+    }
 }
 
 async function hydrateFromNative(
