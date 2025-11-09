@@ -1,0 +1,12 @@
+[
+    {
+        "relation": ["delegate_permission/common.handle_all_urls"],
+        "target": {
+            "namespace": "android_app",
+            "package_name": "app.vercel.byndpos",
+            "sha256_cert_fingerprints": [
+                "52:34:1D:E0:D9:7E:DC:D9:2B:14:B8:29:F8:0C:F6:18:97:83:68:18:F1:9C:26:94:E5:28:6B:23:1D:33:BA:3E"
+            ]
+        }
+    }
+]
