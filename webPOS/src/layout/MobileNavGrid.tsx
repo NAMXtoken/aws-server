@@ -613,7 +613,7 @@ const MobileNavGrid: React.FC = () => {
                         return (
                             <section
                                 key={group.id}
-                                className="snap-start snap-always w-full flex-shrink-0"
+                                className="snap-start snap-always w-full shrink-0"
                                 data-nav-target={group.primaryPath}
                             >
                                 <div className="mx-auto flex h-full w-[calc(100vw-2.5rem)] max-w-sm flex-col gap-3 sm:w-80">

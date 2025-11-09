@@ -2,7 +2,6 @@
 
 import { db, uuid } from '@/lib/db'
 import { getSessionActor } from '@/lib/session'
-import { SyncQueue } from '@/lib/sync-queue'
 import type { InventoryItem } from '@/types/db'
 import type { MenuRow, RestockRecord, UnitRow } from '@/types/db'
 
@@ -24,51 +23,14 @@ async function recordAudit(
     })
 }
 
-const RESTOCK_ACTION = 'recordRestock'
-
 const toNumber = (value: unknown): number => {
     const parsed = Number(value)
     return Number.isFinite(parsed) ? parsed : 0
 }
 
-async function persistRestockRemote(
-    record: RestockRecord,
-    itemName: string
-): Promise<void> {
-    if (typeof fetch === 'undefined') return
-    const payload = {
-        id: record.id,
-        itemId: record.itemId,
-        itemName,
-        timestamp: record.timestamp,
-        unit: record.unit,
-        package: record.package,
-        unitsPerPackage: record.unitsPerPackage,
-        packages: record.packages,
-        extraUnits: record.extraUnits,
-        totalUnits: record.totalUnits,
-        actor: record.actor ?? null,
-        notes: record.notes ?? null,
-    }
-    try {
-        const res = await fetch('/api/gas', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ action: RESTOCK_ACTION, ...payload }),
-        })
-        if (!res.ok) throw new Error(`restock remote failed: ${res.status}`)
-        // do not parse body eagerly; success acknowledged
-    } catch (error) {
-        try {
-            await SyncQueue.enqueue({
-                action: RESTOCK_ACTION,
-                payload,
-                ts: record.timestamp,
-            })
-        } catch (queueErr) {
-            console.warn('Failed to queue restock for sync', queueErr)
-        }
-    }
+async function persistRestockRemote(): Promise<void> {
+    // Temporarily a no-op while Apps Script replication is disabled.
+    return
 }
 
 const normalizeRestockRecord = (input: any): RestockRecord | null => {

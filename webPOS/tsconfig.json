@@ -1,5 +1,6 @@
 {
     "compilerOptions": {
+        "ignoreDeprecations": "6.0",
         "allowJs": false,
         "baseUrl": ".",
         "esModuleInterop": true,
@@ -43,6 +44,7 @@
         "**/*.tsx",
         "**/*.d.ts",
         ".next/types/**/*.ts",
-        ".next/dev/types/**/*.ts"
-, "middleware.js"    ]
+        ".next/dev/types/**/*.ts",
+        "middleware.js"
+        ]
 }

@@ -1,5 +1,6 @@
 'use client'
-import React, { useRef, useEffect } from 'react'
+import React, { useRef, useEffect, useState } from 'react'
+import { createPortal } from 'react-dom'
 
 interface ModalProps {
     isOpen: boolean
@@ -26,6 +27,18 @@ export const Modal: React.FC<ModalProps> = ({
 }) => {
     const modalRef = useRef<HTMLDivElement>(null)
     const previouslyFocused = useRef<HTMLElement | null>(null)
+    const [portalNode, setPortalNode] = useState<HTMLElement | null>(null)
+
+    useEffect(() => {
+        if (typeof document === 'undefined') return
+        const node = document.createElement('div')
+        node.setAttribute('data-modal-root', 'true')
+        document.body.appendChild(node)
+        setPortalNode(node)
+        return () => {
+            document.body.removeChild(node)
+        }
+    }, [])
 
     useEffect(() => {
         const handleEscape = (event: KeyboardEvent) => {
@@ -119,7 +132,7 @@ export const Modal: React.FC<ModalProps> = ({
         }
     }
 
-    if (!isOpen) return null
+    if (!isOpen || !portalNode) return null
 
     const contentClasses = isFullscreen
         ? 'w-full h-full'
@@ -128,11 +141,11 @@ export const Modal: React.FC<ModalProps> = ({
     const bodyClasses =
         'flex h-full flex-col gap-5 px-6 py-7 text-left sm:px-10 sm:py-8'
 
-    return (
-        <div className="fixed inset-0 flex items-center justify-center overflow-y-auto modal z-99999">
+    return createPortal(
+        <div className="fixed inset-0 flex items-center justify-center overflow-y-auto modal z-[99999]">
             {!isFullscreen && (
                 <div
-                    className="fixed inset-0 h-full w-full bg-gray-400/50 backdrop-blur-[32px]"
+                    className="fixed inset-0 h-full w-full bg-gray-950/90"
                     onClick={onClose}
                 ></div>
             )}
@@ -150,7 +163,7 @@ export const Modal: React.FC<ModalProps> = ({
                 {showCloseButton && (
                     <button
                         onClick={onClose}
-                        className="absolute right-4 top-4 z-999 flex h-8 w-8 items-center justify-center rounded-full bg-gray-100 text-gray-400 transition-colors hover:bg-gray-200 hover:text-gray-700 dark:bg-gray-800 dark:text-gray-400 dark:hover:bg-gray-700 dark:hover:text-white sm:right-6 sm:top-6 sm:h-9 sm:w-9"
+                        className="absolute right-4 top-4 z-[999] flex h-8 w-8 items-center justify-center rounded-full bg-gray-100 text-gray-400 transition-colors hover:bg-gray-200 hover:text-gray-700 dark:bg-gray-800 dark:text-gray-400 dark:hover:bg-gray-700 dark:hover:text-white sm:right-6 sm:top-6 sm:h-9 sm:w-9"
                     >
                         <svg
                             width="24"
@@ -172,6 +185,7 @@ export const Modal: React.FC<ModalProps> = ({
                     {children}
                 </div>
             </div>
-        </div>
+        </div>,
+        portalNode
     )
 }

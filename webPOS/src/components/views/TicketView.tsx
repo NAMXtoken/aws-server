@@ -39,6 +39,7 @@ import {
     loadGeneralSettings,
 } from '@/lib/settings'
 import { liveQuery } from 'dexie'
+import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useToast } from '../ecommerce/hooks/use-toast'
@@ -294,7 +295,6 @@ export function TicketView() {
         },
         onInventory: () => {
             ;(async () => {
-                if (!isTenantBootstrapped) return
                 try {
                     const [menuRows, catRows] = await Promise.all([
                         dbListMenu(),
@@ -943,7 +943,7 @@ export function TicketView() {
             setPayDialogOpen(false)
             setPayTicketId(null)
             toast({
-                title: 'Processing payment…',
+                title: 'Processing paymentâ€¦',
                 description: `Ticket ${tid} via ${method}`,
             })
             payTicketAPI(tid, method)
@@ -1041,7 +1041,7 @@ export function TicketView() {
             setPayTicketId(null)
             setPaySelectedMethod(null)
             toast({
-                title: 'Processing cash…',
+                title: 'Processing cashâ€¦',
                 description: `Change: ${formatCurrency(change)}`,
             })
             payTicketAPI(tid2, 'Cash')
@@ -1203,7 +1203,7 @@ export function TicketView() {
     const notePreview =
         noteRaw.length > 0
             ? noteRaw.length > 60
-                ? `${noteRaw.slice(0, 60)}…`
+                ? `${noteRaw.slice(0, 60)}â€¦`
                 : noteRaw
             : null
 
@@ -1468,14 +1468,6 @@ export function TicketView() {
                 setIsAdmin(role === 'admin')
             } catch {}
 
-            if (!isTenantBootstrapped) {
-                setMenuItems([])
-                setCategories([])
-                setActiveCategory(undefined)
-                await fetchOpenTickets()
-                return
-            }
-
             try {
                 await loadMenuAndCategories()
             } catch (e) {
@@ -1609,29 +1601,12 @@ export function TicketView() {
         return itemKeyNorm === activeKeyNorm
     })
 
-    if (!tenantLoading && !isTenantBootstrapped) {
-        return (
-            <div className="sm:py-6">
-                <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
-                    Welcome to the POS
-                </h2>
-                <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">
-                    Finish the onboarding walkthrough to configure your store
-                    before taking orders.
-                </p>
-            </div>
-        )
-    }
+    const showEmptyMenuCTA = itemsForCategory.length === 0
 
     const categoryRail = (
-        <div className="sticky top-[5.25rem] z-30 rounded-2xl border border-gray-200 bg-white/95 px-3 py-3 shadow-md backdrop-blur dark:border-gray-800/80 dark:bg-gray-900/90 sm:px-4 lg:px-6">
+        <div className="sticky top-21 z-30 rounded-2xl border border-gray-200 bg-white/95 px-2 py-2 shadow-md backdrop-blur dark:border-gray-800/80 dark:bg-gray-900/90 sm:px-4 lg:px-6">
             <div className="mx-1 space-y-3 md:mx-0 md:space-y-0">
-                {showNavGrid && (
-                    <div className="md:hidden px-1">
-                        <MobileNavGrid />
-                    </div>
-                )}
-                <div className="px-4 md:px-0">
+                <div className="md:px-0">
                     <div className="overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
                         <div className="inline-flex h-11 w-full flex-nowrap gap-0.5 rounded-lg bg-gray-100 p-0.5 sm:w-auto lg:min-w-fit dark:bg-gray-900">
                             <button
@@ -1673,16 +1648,36 @@ export function TicketView() {
         </div>
     )
 
+
     return (
         <div className="contents">
             <div className="sm:py-6">
                 <div className="px-2 sm:px-3 lg:px-6">
-                    <div className="space-y-4">
-                        {categoryRail}
-                        <div className="grid grid-cols-12 gap-4">
-                            <div className="col-span-12 lg:col-span-8">
+                    <div className="grid gap-4 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)] lg:grid-rows-[auto_minmax(0,1fr)]">
+                        <div className="space-y-4 lg:space-y-0 lg:grid lg:grid-rows-[auto_minmax(0,1fr)] lg:gap-4">
+                            <div>{categoryRail}</div>
+                            <div className="space-y-4">
+                                {showNavGrid && (
+                                    <div className="md:hidden px-1">
+                                        <MobileNavGrid />
+                                    </div>
+                                )}
                                 <div className="rounded-2xl border border-gray-200 bg-white/95 p-3 shadow-sm ring-1 ring-black/5 dark:border-gray-800/70 dark:bg-gray-950/70 dark:ring-white/10 sm:p-4 lg:p-6">
                                     <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4">
+                                        {showEmptyMenuCTA && (
+                                            <Link
+                                                href="/inventory/set-stock/new"
+                                                className="flex min-h-44 flex-col items-center justify-center rounded-lg border-2 border-dashed border-gray-300 text-center text-gray-500 transition hover:border-gray-400 hover:text-gray-700 dark:border-gray-700 dark:text-gray-400 dark:hover:border-gray-600 dark:hover:text-gray-100"
+                                                aria-label="Add a menu item"
+                                            >
+                                                <span className="text-4xl leading-none">
+                                                    +
+                                                </span>
+                                                <span className="mt-2 text-xs font-medium uppercase tracking-wide">
+                                                    Add Menu Item
+                                                </span>
+                                            </Link>
+                                        )}
                                         {itemsForCategory.map((item) => (
                                             <button
                                                 key={item.id}
@@ -1717,7 +1712,7 @@ export function TicketView() {
                                                                 item.id
                                                             ] || 0
                                                         return q > 0 ? (
-                                                            <span className="absolute right-2 top-2 z-10 inline-flex min-h-[1.25rem] min-w-[1.25rem] items-center justify-center rounded-full bg-red-600 px-1.5 text-xs font-semibold leading-none text-white shadow">
+                                                            <span className="absolute right-2 top-2 z-10 inline-flex min-h-5 min-w-5 items-center justify-center rounded-full bg-red-600 px-1.5 text-xs font-semibold leading-none text-white shadow">
                                                                 {q}
                                                             </span>
                                                         ) : null
@@ -1743,9 +1738,10 @@ export function TicketView() {
                                     </div>
                                 </div>
                             </div>
+                        </div>
 
-                            <div className="col-span-12 lg:col-span-4">
-                                <div className="hidden rounded-lg border border-gray-200 bg-white shadow-sm dark:border-gray-800 dark:bg-gray-900 lg:block lg:sticky lg:top-[5.25rem]">
+                        <div className="lg:row-span-2">
+                            <div className="hidden rounded-lg border border-gray-200 bg-white shadow-sm dark:border-gray-800 dark:bg-gray-900 lg:block lg:sticky lg:top-21">
                                     <div className="border-b border-gray-200 p-4 dark:border-gray-800">
                                         <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                                             <h3 className="text-sm font-medium text-gray-700 dark:text-gray-200">
@@ -1765,7 +1761,7 @@ export function TicketView() {
                                                     </span>
                                                 </span>
                                                 <span
-                                                    className="inline-flex max-w-[14rem] items-center gap-1 rounded-md bg-gray-100 px-2 py-1 text-xs text-gray-600 dark:bg-gray-800/60 dark:text-gray-200"
+                                                    className="inline-flex max-w-56 items-center gap-1 rounded-md bg-gray-100 px-2 py-1 text-xs text-gray-600 dark:bg-gray-800/60 dark:text-gray-200"
                                                     title={
                                                         notePreview
                                                             ? (
@@ -1923,7 +1919,7 @@ export function TicketView() {
                                 </Button>
                             </div>
                         </div>
-                    </div>
+                </div>
                     {activeTicket ? (
                         <div className="lg:hidden">
                             <div
@@ -2072,7 +2068,7 @@ export function TicketView() {
                                     <div className="mt-2 flex items-center gap-2">
                                         <Button
                                             variant="primary"
-                                            className="flex-[4]"
+                                            className="flex-4"
                                             onClick={handleSaveItems}
                                             disabled={
                                                 saving ||
@@ -2132,17 +2128,18 @@ export function TicketView() {
                     ) : null}
                 </div>
             </div>
-            </div>
+        </div>
+    </div>
 
-            <Modal
-            isOpen={openTicketPromptOpen}
-            onClose={() => {
-                setOpenTicketPromptOpen(false)
-                resetPendingMenuIntent()
-            }}
-            className="max-w-sm !min-h-[14rem]"
-            bodyClassName="gap-0 px-5 py-5 sm:px-6 sm:py-6"
-        >
+    <Modal
+        isOpen={openTicketPromptOpen}
+        onClose={() => {
+            setOpenTicketPromptOpen(false)
+            resetPendingMenuIntent()
+        }}
+        className="max-w-sm min-h-56!"
+        bodyClassName="gap-0 px-5 py-5 sm:px-6 sm:py-6"
+    >
             <div className="flex-1 space-y-2">
                 <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
                     Open a ticket?
@@ -2172,7 +2169,7 @@ export function TicketView() {
                     }}
                     disabled={creatingTicket}
                 >
-                    {creatingTicket ? 'Opening…' : 'Open Ticket'}
+                    {creatingTicket ? 'Openingâ€¦' : 'Open Ticket'}
                 </Button>
             </div>
             </Modal>
@@ -2253,7 +2250,7 @@ export function TicketView() {
                                     disabled={newTicketSubmitting}
                                 >
                                     {newTicketSubmitting
-                                        ? 'Opening…'
+                                        ? 'Openingâ€¦'
                                         : 'Open Ticket'}
                                 </Button>
                             </div>
@@ -2308,7 +2305,7 @@ export function TicketView() {
                                         onClick={() => handlePay('Card')}
                                     >
                                         {payMethodLoading === 'Card'
-                                            ? 'Processing…'
+                                            ? 'Processingâ€¦'
                                             : 'Card'}
                                     </Button>
                                     <Button
@@ -2317,7 +2314,7 @@ export function TicketView() {
                                         onClick={() => handlePay('PromptPay')}
                                     >
                                         {payMethodLoading === 'PromptPay'
-                                            ? 'Processing…'
+                                            ? 'Processingâ€¦'
                                             : 'PromptPay'}
                                     </Button>
                                 </div>
@@ -2416,7 +2413,7 @@ export function TicketView() {
                                             }
                                         >
                                             {payLoading
-                                                ? 'Recording…'
+                                                ? 'Recordingâ€¦'
                                                 : 'Confirm Cash'}
                                         </Button>
                                     </div>
@@ -2461,7 +2458,7 @@ export function TicketView() {
                                             >
                                                 -
                                             </button>
-                                            <span className="min-w-[3rem] text-center text-base font-semibold text-gray-900 dark:text-gray-100">
+                                            <span className="min-w-12 text-center text-base font-semibold text-gray-900 dark:text-gray-100">
                                                 {coversCount}
                                             </span>
                                             <button
@@ -2515,7 +2512,7 @@ export function TicketView() {
                                             }
                                         >
                                             {savingDetails
-                                                ? 'Saving…'
+                                                ? 'Savingâ€¦'
                                                 : 'Save Changes'}
                                         </Button>
                                     </div>

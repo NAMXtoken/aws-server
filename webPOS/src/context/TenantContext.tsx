@@ -23,6 +23,9 @@ import {
     getTenantConfigLocal,
     deriveUserIdFromEmail,
 } from '@/lib/tenant-config'
+import { getSupabaseBrowserClient } from '@/lib/supabase/client'
+import { getActiveTenantSupabaseId } from '@/lib/tenant-supabase'
+import { syncMenuFromRemote } from '@/lib/local-catalog'
 import { isTenantUuid, tenantSlugToSupabaseId } from '@/lib/tenant-ids'
 
 type TenantContextValue = {
@@ -533,6 +536,36 @@ export function TenantProvider({ children }: { children: ReactNode }) {
                 : null,
         [tenant?.accountEmail]
     )
+
+    useEffect(() => {
+        if (!tenant) return
+        const supabase = getSupabaseBrowserClient()
+        let channel: ReturnType<typeof supabase.channel> | null = null
+        let cancelled = false
+        ;(async () => {
+            const supabaseId = await getActiveTenantSupabaseId()
+            if (!supabaseId || cancelled) return
+            channel = supabase
+                .channel(`menu-items-${supabaseId}`)
+                .on(
+                    'postgres_changes',
+                    {
+                        event: '*',
+                        schema: 'public',
+                        table: 'menu_items',
+                        filter: `tenant_id=eq.${supabaseId}`,
+                    },
+                    () => {
+                        void syncMenuFromRemote({ ignoreBootstrap: true })
+                    }
+                )
+                .subscribe()
+        })()
+        return () => {
+            cancelled = true
+            channel?.unsubscribe()
+        }
+    }, [tenant?.tenantId])
 
     const value = useMemo<TenantContextValue>(
         () => ({

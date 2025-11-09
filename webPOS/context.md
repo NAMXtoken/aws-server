@@ -114,3 +114,19 @@
 08/11 00:17 conversation-unknown Cleaned sales TicketView markup to fix build break and removed the disabled overlay styling so menu cards stay bright even without an open shift.
 
 08/11 00:18 conversation-unknown Replaced stray fragments in TicketView with div wrappers so the sales page parses cleanly in Next build.
+08/11 14:21 conversation-unknown Decoupled MobileNavGrid from the sticky category rail so the mobile nav grid renders independently.
+08/11 14:28 conversation-unknown Reordered TicketView so MobileNavGrid renders beneath the sticky category rail and directly above the menu card grid for mobile.
+09/11 21:49 conversation-unknown Placed the sticky category rail in the first grid column and the desktop ticket card in the second so they share the top row as requested.
+09/11 22:10 conversation-unknown Sized the top grid to 2fr/1fr so the category rail consumes two thirds of the row while the ticket card covers the remaining third.
+09/11 22:40 conversation-unknown Reworked TicketView layout so the sticky category rail fills the left 2fr column, the menu grid lives directly beneath it, and the mobile nav grid is no longer trapped inside the sticky rail.
+09/11 22:51 conversation-unknown Removed the onboarding placeholder, always render the menu grid, and added a dashed '+' card linking to /inventory/set-stock/new whenever no items exist for the chosen category.
+09/11 22:40 conversation-unknown Allowed TicketView to load menu categories even when bootstrapComplete is false so inventory items show up on /sales for unbootstrapped tenants.
+09/11 23:05 conversation-unknown Split the left column into grid rows so the sticky category rail sits in row 1 and the menu grid (with optional mobile nav) occupies row 2 beneath it.
+09/11 23:18 conversation-unknown Fixed the modal/header stacking by converting the invalid tailwind classes (z-99999/z-999) into arbitrary values (z-[99999], z-[999]) so overlays sit above the blurred cards again.
+10/11 00:05 conversation-unknown Portaled the Modal component to document.body so its fixed overlay covers the entire viewport regardless of parent layout and kept z-order values using Tailwind arbitrary classes.
+10/11 00:20 conversation-unknown Dropped AppHeader to z-[100] so global modals (now portaled) can sit above it; previously both header and modal used the same massive z-index so the header overlapped the shift/export dialogs.
+10/11 00:32 conversation-unknown Darkened the modal backdrop to bg-gray-950/60 with a light blur so the underlying page is no longer clearly visible when shift/export modals open.
+09/11 23:07 conversation-unknown Made the modal backdrop fully opaque (bg-gray-950/90) so dialogs read clearly instead of showing the blurred page through them.
+10/11 00:45 conversation-unknown Gave toasts solid backgrounds via inline styles and removed the inventory bootstrapping guard from TicketView’s realtime handler so /sales updates whenever local menu data changes.
+09/11 23:44 conversation-unknown Removed the remaining GAS calls from the inventory editors, persisted new menu items directly to Dexie + Supabase, and taught the catalog sync to hydrate from Supabase tenants so /sales and /inventory stay aligned across reloads.
+10/11 00:58 conversation-unknown Rewired inventory add-stock/menu-settings flows to use Dexie + Supabase (no GAS), introduced shared Supabase menu upsert helpers, and subscribed TenantProvider to menu_items realtime updates to keep Android caches fresh.

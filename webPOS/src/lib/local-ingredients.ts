@@ -41,29 +41,8 @@ export async function saveIngredients(rows: IngredientRow[]): Promise<number> {
 export async function refreshIngredientsFromRemote(): Promise<
     IngredientRow[] | null
 > {
-    if (typeof fetch === 'undefined') return []
-    try {
-        const res = await fetch('/api/gas?action=ingredients', {
-            cache: 'no-store',
-        })
-        if (!res.ok) throw new Error(`ingredients fetch failed: ${res.status}`)
-        const data = await res.json().catch(() => ({}))
-        const items = Array.isArray(data?.items)
-            ? data.items
-            : Array.isArray(data)
-              ? data
-              : []
-        const normalized = items
-            .map((item: any) => toIngredientRow(item))
-            .filter((row: IngredientRow | null): row is IngredientRow =>
-                Boolean(row)
-            )
-        if (normalized.length) await saveIngredients(normalized)
-        return normalized
-    } catch (error) {
-        console.warn('Failed to refresh ingredients', error)
-        return null
-    }
+    // Placeholder: currently ingredients live solely in Dexie.
+    return listCachedIngredients()
 }
 
 export async function upsertIngredientLocal(

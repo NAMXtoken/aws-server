@@ -8,10 +8,12 @@ import {
     upsertInventoryItemLocal,
     upsertUnitLocal,
 } from '@/lib/local-inventory'
-import { upsertIngredientLocal } from '@/lib/local-ingredients'
-import { uuid } from '@/lib/db'
 import {
-    invalidateMenuCache,
+    listCachedIngredients,
+    upsertIngredientLocal,
+} from '@/lib/local-ingredients'
+import { db, uuid } from '@/lib/db'
+import {
     listCategories as listCachedCategories,
     syncMenuFromRemote,
 } from '@/lib/local-catalog'
@@ -23,6 +25,9 @@ import {
     validateOptionGroups,
 } from '@/lib/inventory-options'
 import { useTenant } from '@/context/TenantContext'
+import { upsertMenuItemRemote, buildMenuMetadataFromRow } from '@/lib/menu-remote'
+import type { MenuRow } from '@/types/db'
+import type { MenuRow } from '@/types/db'
 
 export default function NewInventoryItemPage() {
     const router = useRouter()
@@ -92,91 +97,45 @@ export default function NewInventoryItemPage() {
                 console.warn('Failed to load cached categories', err)
             }
         }
-        const fetchRemoteCategories = async () => {
-            try {
-                const res = await fetch('/api/gas?action=categories', {
-                    cache: 'no-store',
-                })
-                const data = await res.json().catch(() => ({}))
-                const raw = Array.isArray(data)
-                    ? data
-                    : Array.isArray(data?.items)
-                      ? data.items
-                      : []
-                const mapped = raw
-                    .map((item: any) => {
-                        const value = String(
-                            item?.value ??
-                                item?.slug ??
-                                item?.label ??
-                                item?.name ??
-                                ''
-                        ).trim()
-                        const label = String(
-                            item?.label ?? item?.name ?? value
-                        ).trim()
-                        const id = String((item?.id ?? value) || label).trim()
-                        if (!label) return null
-                        return {
-                            id: id || value || label,
-                            label,
-                            value: value || label,
-                        }
-                    })
-                    .filter(Boolean) as Array<{
-                    id: string
-                    label: string
-                    value: string
-                }>
-                if (!active) return
-                setCategories(mapped)
-                if (mapped.length) {
-                    setCategory((prev) => prev || mapped[0].value)
-                }
-            } catch (err) {
-                console.error('Failed to load categories:', err)
-            }
-        }
         void applyCachedCategories()
-        void fetchRemoteCategories()
-        return () => {
-            active = false
-        }
-    }, [tenant, tenantLoading])
-
-    useEffect(() => {
-        if (tenantLoading) return
-        if (!tenant) {
-            setIngredients([])
-            return
-        }
-        let active = true
         ;(async () => {
             try {
-                const res = await fetch('/api/gas?action=ingredients', {
-                    cache: 'no-store',
-                })
-                const data = await res.json()
-                const items = Array.isArray(data?.items)
-                    ? data.items
-                    : Array.isArray(data)
-                      ? data
-                      : []
-                if (!active) return
-                setIngredients(
-                    items.map((item: any) => ({
-                        name: item.name || '',
-                        packageUnits: item.packageUnits || '',
-                        totalVolume: Number(item.totalVolume || 0),
-                    }))
-                )
+                await syncMenuFromRemote({ ignoreBootstrap: true })
+                await applyCachedCategories()
             } catch (err) {
-                console.error('Failed to load ingredients:', err)
+                console.warn('Failed to refresh categories from Supabase', err)
             }
         })()
         return () => {
             active = false
         }
+    }, [tenant, tenantLoading])
+
+useEffect(() => {
+    if (tenantLoading) return
+    if (!tenant) {
+        setIngredients([])
+        return
+    }
+    let active = true
+    ;(async () => {
+        try {
+            const items = await listCachedIngredients()
+            if (!active) return
+            setIngredients(
+                items.map((item) => ({
+                    name: item.name,
+                    packageUnits: item.packageUnits || '',
+                    totalVolume: item.totalVolume || 0,
+                }))
+            )
+        } catch (err) {
+            console.error('Failed to load cached ingredients:', err)
+        }
+    })()
+    return () => {
+        active = false
+    }
     }, [tenant, tenantLoading])
 
     const onSelectImage: React.ChangeEventHandler<HTMLInputElement> = async (
@@ -213,29 +172,13 @@ export default function NewInventoryItemPage() {
                 .replace(/^-+|-+$/g, '') || label
         setAddingCategory(true)
         try {
-            const response = await fetch('/api/gas', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    action: 'saveCategory',
-                    label,
-                    icon,
-                    value: slug,
-                }),
-            })
-            const data = await response.json().catch(() => ({}))
-            if (!response.ok || !data?.ok) {
-                throw new Error(
-                    data?.error ? String(data.error) : 'Failed to add category'
-                )
-            }
-            const saved = data?.category || {}
             const normalized = {
-                id: String(saved.id || saved.value || slug || label || uuid()),
-                label: String(saved.label || label),
-                value: String(saved.value || slug || label),
-                icon: String(saved.icon || icon || ''),
+                id: uuid(),
+                label,
+                value: slug,
+                icon,
             }
+            await db.categories.put(normalized)
             setCategories((prev) => {
                 const deduped = prev.filter(
                     (cat) =>
@@ -250,14 +193,7 @@ export default function NewInventoryItemPage() {
             setCategory(normalized.value)
             setNewCategoryName('')
             setNewCategoryIcon('')
-            try {
-                await invalidateMenuCache()
-                await syncMenuFromRemote({
-                    ignoreBootstrap: true,
-                })
-            } catch (syncErr) {
-                console.warn('Failed to refresh menu cache', syncErr)
-            }
+            void syncMenuFromRemote({ ignoreBootstrap: true })
             try {
                 broadcastUpdate('inventory')
             } catch (broadcastErr) {
@@ -381,16 +317,24 @@ export default function NewInventoryItemPage() {
     }
 
     const onSave = async () => {
+        const safeMenuName = menuName.trim()
+        const safeCategory = category.trim()
+        const safeWarehouseName = warehouseName.trim()
         const purchPrice = Number(purchasePrice)
+        const safePurchasePrice = Number.isFinite(purchPrice) ? purchPrice : 0
         const mPrice = Number(menuPrice)
+        const safeMenuPrice = Number.isFinite(mPrice) ? mPrice : 0
         const shelf = Number(shelfLifeDays)
-        const vol = 0
-        const low = Number(lowStockQty)
-        if (!menuName.trim()) {
+        const safeShelfLife = Number.isFinite(shelf) ? shelf : 0
+        const safeLowStock = Number.isFinite(Number(lowStockQty))
+            ? Number(lowStockQty)
+            : 0
+
+        if (!safeMenuName) {
             setError('Menu Name is required')
             return
         }
-        if (!category.trim() && categories.length > 0) {
+        if (!safeCategory && categories.length > 0) {
             setError('Category is required')
             return
         }
@@ -423,7 +367,7 @@ export default function NewInventoryItemPage() {
                 purchasedUnit: '',
                 consumeUnit: '',
                 volume: 0,
-                lowStockQty: isFinite(low) ? low : 0,
+                lowStockQty: safeLowStock,
                 ingredients: JSON.stringify(selectedIngredients),
                 options: optionsPayload,
             })
@@ -434,46 +378,49 @@ export default function NewInventoryItemPage() {
                 package: '',
                 unitsPerPackage: 0,
             })
-            try {
-                const resp = await fetch('/api/gas', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        action: 'saveMenuItem',
-                        id,
-                        name: menuName.trim(),
-                        description: '',
-                        price: isFinite(mPrice) ? mPrice : 0,
-                        image: imageUrl || '',
-                        category: category.trim(),
-                        purchasePrice: isFinite(purchPrice) ? purchPrice : 0,
-                        warehouseName: warehouseName.trim(),
-                        shelfLifeDays: isFinite(shelf) ? shelf : 0,
-                        purchasedUnit: '',
-                        consumeUnit: '',
-                        volume: 0,
-                        lowStockQty: isFinite(low) ? low : 0,
-                        ingredients: JSON.stringify(selectedIngredients),
-                        options: optionsPayload,
-                        matchName: menuName.trim(),
-                        matchCategory: category.trim(),
-                    }),
-                })
-                if (!resp.ok) {
-                    const text = await resp.text()
-                    throw new Error(text || 'Failed to sync menu item')
-                }
-                await invalidateMenuCache()
-                await syncMenuFromRemote({
-                    ignoreBootstrap: true,
-                })
+            const menuRecord: MenuRow = {
+                id,
+                name: safeMenuName,
+                description: '',
+                price: isFinite(mPrice) ? mPrice : 0,
+                image: imageUrl || '',
+                category: safeCategory,
+                purchasePrice: safePurchasePrice,
+                warehouseName: safeWarehouseName,
+                shelfLifeDays: safeShelfLife,
+                purchasedUnit: '',
+                consumeUnit: '',
+                volume: 0,
+                lowStockQty: safeLowStock,
+                ingredients: JSON.stringify(selectedIngredients),
+                options: optionsPayload,
+                updatedAt: Date.now(),
+                unitsUpdatedAt: Date.now(),
+            }
+            await db.menu_items.put(menuRecord)
+            ;(async () => {
                 try {
-                    broadcastUpdate('inventory')
-                } catch {
-                    /* noop */
+                    await upsertMenuItemRemote({
+                        id,
+                        name: safeMenuName,
+                        price: menuRecord.price,
+                        category: safeCategory,
+                        metadata: {
+                            ...buildMenuMetadataFromRow(menuRecord),
+                            ingredients: selectedIngredients,
+                            options: optionsPayload,
+                            image: imageUrl || '',
+                        },
+                    })
+                    await syncMenuFromRemote({ ignoreBootstrap: true })
+                } catch (syncErr) {
+                    console.warn('Failed to sync menu to Supabase:', syncErr)
                 }
-            } catch (syncErr) {
-                console.warn('Failed to sync menu to Google Sheets:', syncErr)
+            })()
+            try {
+                broadcastUpdate('inventory')
+            } catch {
+                /* noop */
             }
             router.replace('/inventory/set-stock')
         } catch (err) {

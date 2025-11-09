@@ -8,8 +8,8 @@ import {
     upsertUnitLocal,
 } from '@/lib/local-inventory'
 import {
-    invalidateMenuCache,
     listCategories as listCachedCategories,
+    listMenu,
     syncMenuFromRemote,
 } from '@/lib/local-catalog'
 import { broadcastUpdate } from '@/hooks/use-realtime'
@@ -27,6 +27,9 @@ import {
     listCachedIngredients,
     refreshIngredientsFromRemote,
 } from '@/lib/local-ingredients'
+import { db } from '@/lib/db'
+import { upsertMenuItemRemote, buildMenuMetadataFromRow } from '@/lib/menu-remote'
+import type { MenuRow } from '@/types/db'
 
 export default function EditInventoryItemPage() {
     const params = useParams<{ id: string }>()
@@ -169,55 +172,25 @@ export default function EditInventoryItemPage() {
         ) => {
             let inferredCategory = localRow?.category || ''
             try {
-                const catRes = await fetch('/api/gas?action=categories', {
-                    cache: 'no-store',
-                })
-                const catData = await catRes.json().catch(() => ({}))
-                const rawCats = Array.isArray(catData)
-                    ? catData
-                    : Array.isArray(catData?.items)
-                      ? catData.items
-                      : []
+                const cachedCats = await listCachedCategories().catch(() => [])
                 if (!active) return
-                const mapped = rawCats
-                    .map((item: any) => {
-                        const value = String(
-                            item?.value ??
-                                item?.slug ??
-                                item?.label ??
-                                item?.name ??
-                                ''
-                        ).trim()
-                        const label = String(
-                            item?.label ?? item?.name ?? value
-                        ).trim()
-                        const mappedId = String(
-                            (item?.id ?? value) || label
-                        ).trim()
-                        if (!label) return null
-                        return {
-                            id: mappedId || value || label,
-                            label,
-                            value: value || label,
-                        }
-                    })
-                    .filter(Boolean) as Array<{
-                    id: string
-                    label: string
-                    value: string
-                }>
-                if (!active) return
+                setCategories(
+                    cachedCats.map((cat) => ({
+                        id: cat.id,
+                        label: cat.label,
+                        value: cat.value,
+                    }))
+                )
                 if (!inferredCategory && localRow?.category) {
-                    const matched = mapped.find(
+                    const matched = cachedCats.find(
                         (cat) =>
                             cat.id === localRow.category ||
                             cat.value === localRow.category
                     )
                     inferredCategory = matched ? matched.value : ''
                 }
-                setCategories(mapped)
             } catch (err) {
-                console.error('Failed to load categories:', err)
+                console.warn('Failed to load cached categories', err)
             }
 
             try {
@@ -235,20 +208,12 @@ export default function EditInventoryItemPage() {
             }
 
             try {
-                const menuRes = await fetch('/api/gas?action=menu', {
-                    cache: 'no-store',
-                })
-                const menuData = await menuRes.json()
+                const rows = await listMenu().catch(() => [])
                 if (!active) return
-                const rows = Array.isArray(menuData)
-                    ? menuData
-                    : Array.isArray(menuData?.items)
-                      ? menuData.items
-                      : []
                 const match = rows.find(
-                    (item: any) =>
+                    (item) =>
                         String(item?.id || '').trim() === id ||
-                        String(item?.matchId || '').trim() === id
+                        String(item?.name || '').trim() === localRow?.menuName
                 )
                 if (match) {
                     const parsedPrice = Number(match.price || 0)
@@ -379,24 +344,6 @@ export default function EditInventoryItemPage() {
             if (!res.ok) throw new Error(res.error || 'Upload failed')
             const url = res.url || res.webViewLink || res.webContentLink || ''
             setImageUrl(url)
-
-            // Sync image to Google Sheets (Menu tab)
-            try {
-                const row = await getInventoryItemLocal(id)
-                await fetch('/api/gas', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        action: 'setMenuImage',
-                        id,
-                        url,
-                        matchName: row?.menuName || menuName,
-                        matchCategory: (category || '').trim(),
-                    }),
-                })
-            } catch (syncErr) {
-                console.warn('Failed to sync image to Google Sheets:', syncErr)
-            }
         } catch (err) {
             setError(String((err as Error)?.message || err))
         } finally {
@@ -541,38 +488,38 @@ export default function EditInventoryItemPage() {
             // Sync to Google Sheets (Menu tab) in the background
             ;(async () => {
                 try {
-                    const row = await getInventoryItemLocal(id)
-                    const resp = await fetch('/api/gas', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({
-                            action: 'saveMenuItem',
-                            id,
-                            name: safeMenuName,
-                            description: '', // Can be added to the form later if needed
-                            price: safeMenuPrice,
-                            category: safeCategory,
-                            purchasePrice: safePurchasePrice,
-                            warehouseName: safeWarehouseName,
-                            shelfLifeDays: safeShelfLife,
-                            purchasedUnit: safePurchasedUnit,
-                            consumeUnit: safeConsumeUnit,
-                            volume: safeVolume,
-                            lowStockQty: safeLowStock,
-                            ingredients: JSON.stringify(selectedIngredients),
-                            options: optionsPayload,
-                            matchName:
-                                row?.menuName ||
-                                existingRow?.menuName ||
-                                safeMenuName,
-                            matchCategory: fallbackCategory || safeCategory,
-                            image: safeImage,
-                        }),
-                    })
-                    if (!resp.ok) {
-                        throw new Error('Failed to sync menu item')
+                    const menuRecord: MenuRow = {
+                        id,
+                        name: safeMenuName,
+                        description: '',
+                        price: safeMenuPrice,
+                        image: safeImage,
+                        category: safeCategory,
+                        purchasePrice: safePurchasePrice,
+                        warehouseName: safeWarehouseName,
+                        shelfLifeDays: safeShelfLife,
+                        purchasedUnit: safePurchasedUnit,
+                        consumeUnit: safeConsumeUnit,
+                        volume: safeVolume,
+                        lowStockQty: safeLowStock,
+                        ingredients: JSON.stringify(selectedIngredients),
+                        options: optionsPayload,
+                        updatedAt: Date.now(),
+                        unitsUpdatedAt: Date.now(),
                     }
-                    await invalidateMenuCache()
+                    await db.menu_items.put(menuRecord)
+                    await upsertMenuItemRemote({
+                        id,
+                        name: safeMenuName,
+                        price: safeMenuPrice,
+                        category: safeCategory,
+                        metadata: {
+                            ...buildMenuMetadataFromRow(menuRecord),
+                            ingredients: selectedIngredients,
+                            options: optionsPayload,
+                            image: safeImage,
+                        },
+                    })
                     await syncMenuFromRemote({
                         ignoreBootstrap: true,
                     })
@@ -582,7 +529,7 @@ export default function EditInventoryItemPage() {
                         /* noop */
                     }
                 } catch (syncErr) {
-                    console.warn('Failed to sync to Google Sheets:', syncErr)
+                    console.warn('Failed to sync menu item:', syncErr)
                 }
             })()
         } catch (err) {

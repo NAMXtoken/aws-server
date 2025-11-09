@@ -11,173 +11,135 @@ import {
     TableRow,
 } from '@/components/uiz/table'
 import { broadcastUpdate, useRealtime } from '@/hooks/use-realtime'
+import {
+    addRestockRecord,
+    listInventoryItems,
+    listRestockRecords,
+    listUnits,
+} from '@/lib/local-inventory'
+import type { RestockRecord } from '@/types/db'
 
-type IngredientRow = {
+type StockRow = {
+    id: string
     name: string
-    package: string
-    packageVolume: number
-    packageUnits: string
-    addedStock: number
-    totalVolume: number
+    packageLabel: string
+    unitLabel: string
+    unitsPerPackage: number
+    lastRestock?: RestockRecord
 }
-
-type IngredientsResponse =
-    | {
-          ok?: boolean
-          items?: any[]
-          error?: string
-      }
-    | IngredientRow[]
 
 export default function AddStockPage() {
     const { toast } = useToast()
     const [loading, setLoading] = useState(true)
     const [error, setError] = useState<string | null>(null)
-    const [rows, setRows] = useState<IngredientRow[]>([])
+    const [rows, setRows] = useState<StockRow[]>([])
     const [inputs, setInputs] = useState<Record<string, string>>({})
-    const [saving, setSaving] = useState<string | null>(null)
+    const [savingId, setSavingId] = useState<string | null>(null)
 
-    const normalizeIngredients = useCallback(
-        (payload: IngredientsResponse): IngredientRow[] => {
-            const source = Array.isArray(payload)
-                ? payload
-                : Array.isArray(payload?.items)
-                  ? payload.items
-                  : []
-            return source
-                .map((row): IngredientRow | null => {
-                    const name = String(row?.name ?? '').trim()
-                    if (!name) return null
-                    return {
-                        name,
-                        package: String(row?.package ?? ''),
-                        packageVolume: Number(row?.packageVolume ?? 0) || 0,
-                        packageUnits: String(row?.packageUnits ?? ''),
-                        addedStock:
-                            Number(
-                                row?.addedStock ?? row?.packagesStock ?? 0
-                            ) || 0,
-                        totalVolume: Number(row?.totalVolume ?? 0) || 0,
-                    }
-                })
-                .filter((row): row is IngredientRow => row !== null)
-                .sort((a, b) => a.name.localeCompare(b.name))
-        },
-        []
-    )
-
-    const loadIngredients = useCallback(
+    const loadRows = useCallback(
         async (options?: { silent?: boolean }) => {
             if (!options?.silent) {
                 setLoading(true)
                 setError(null)
             }
             try {
-                const res = await fetch(`/api/gas?action=ingredients`, {
-                    cache: 'no-store',
-                })
-                const data = await res.json().catch(() => ({}))
-                if (!res.ok || data?.ok === false) {
-                    throw new Error(
-                        data?.error ||
-                            `Failed to load ingredients (${res.status})`
-                    )
+                const [units, inventoryItems, restocks] = await Promise.all([
+                    listUnits(),
+                    listInventoryItems(),
+                    listRestockRecords(),
+                ])
+                const inventoryMap = new Map<string, string>()
+                for (const item of inventoryItems) {
+                    if (item.id) {
+                        inventoryMap.set(item.id, item.menuName || item.id)
+                    }
                 }
-                const normalized = normalizeIngredients(data)
+                const restockMap = new Map<string, RestockRecord>()
+                for (const record of restocks) {
+                    if (!restockMap.has(record.itemId)) {
+                        restockMap.set(record.itemId, record)
+                    }
+                }
+                const normalized: StockRow[] = units
+                    .filter((unit) => unit.id)
+                    .map((unit) => ({
+                        id: unit.id,
+                        name: inventoryMap.get(unit.id) || unit.id,
+                        packageLabel: unit.package || 'Package',
+                        unitLabel: unit.unit || 'Unit',
+                        unitsPerPackage: unit.unitsPerPackage || 0,
+                        lastRestock: restockMap.get(unit.id),
+                    }))
+                    .sort((a, b) => a.name.localeCompare(b.name))
                 setRows(normalized)
                 setInputs((prev) => {
                     const next: Record<string, string> = {}
                     for (const row of normalized) {
-                        if (prev[row.name] != null)
-                            next[row.name] = prev[row.name]
+                        if (prev[row.id] != null) next[row.id] = prev[row.id]
                     }
                     return next
                 })
             } catch (err) {
                 const message = err instanceof Error ? err.message : String(err)
-                if (!options?.silent) setError(message)
-                else
+                if (!options?.silent) {
+                    setError(message)
+                } else {
                     toast({
                         title: 'Refresh failed',
                         description: message,
                         variant: 'destructive',
                     })
+                }
             } finally {
                 if (!options?.silent) setLoading(false)
             }
         },
-        [normalizeIngredients, toast]
+        [toast]
     )
 
     useEffect(() => {
-        void loadIngredients()
-    }, [loadIngredients])
+        void loadRows()
+    }, [loadRows])
 
-    const handleRealtimeRefresh = useCallback(() => {
-        void loadIngredients({ silent: true })
-    }, [loadIngredients])
+    useRealtime({ onInventory: () => void loadRows({ silent: true }) })
 
-    useRealtime({ onInventory: handleRealtimeRefresh })
-
-    const onChange = useCallback((name: string, value: string) => {
-        setInputs((prev) => ({ ...prev, [name]: value }))
+    const onChange = useCallback((id: string, value: string) => {
+        setInputs((prev) => ({ ...prev, [id]: value }))
     }, [])
 
     const onAdd = useCallback(
-        async (row: IngredientRow) => {
-            const raw = inputs[row.name]
+        async (row: StockRow) => {
+            const raw = inputs[row.id]
             const qty = Number(raw)
             if (!Number.isFinite(qty) || qty <= 0) {
                 toast({
                     title: 'Enter a valid quantity',
-                    description: 'Purchase In must be greater than zero.',
+                    description: 'Packages must be greater than zero.',
                     variant: 'destructive',
                 })
                 return
             }
-            setSaving(row.name)
+            setSavingId(row.id)
             try {
-                const res = await fetch('/api/gas', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        action: 'addIngredientStock',
-                        name: row.name,
-                        amount: qty,
-                    }),
+                const record = await addRestockRecord({
+                    id: row.id,
+                    packages: qty,
+                    extraUnits: 0,
                 })
-                const data = await res.json().catch(() => ({}))
-                if (!res.ok || data?.ok === false) {
-                    throw new Error(
-                        data?.error || `Failed to record stock (${res.status})`
-                    )
-                }
-                const updatedAdded =
-                    Number(data?.addedStock ?? data?.newAddedStock) || 0
-                const updatedTotal =
-                    Number(data?.totalVolume ?? data?.newTotalVolume) ||
-                    row.totalVolume
                 setRows((prev) =>
                     prev.map((item) =>
-                        item.name === row.name
-                            ? {
-                                  ...item,
-                                  addedStock:
-                                      updatedAdded > 0
-                                          ? updatedAdded
-                                          : item.addedStock + qty,
-                                  totalVolume: updatedTotal,
-                              }
+                        item.id === row.id
+                            ? { ...item, lastRestock: record }
                             : item
                     )
                 )
-                setInputs((prev) => ({ ...prev, [row.name]: '' }))
+                setInputs((prev) => ({ ...prev, [row.id]: '' }))
                 toast({
                     title: 'Stock recorded',
-                    description: `${qty} added to ${row.name}`,
+                    description: `${qty} packages added to ${row.name}.`,
                 })
                 broadcastUpdate('inventory')
-                await loadIngredients({ silent: true })
+                await loadRows({ silent: true })
             } catch (err) {
                 toast({
                     title: 'Add stock failed',
@@ -186,10 +148,10 @@ export default function AddStockPage() {
                     variant: 'destructive',
                 })
             } finally {
-                setSaving(null)
+                setSavingId(null)
             }
         },
-        [inputs, loadIngredients, toast]
+        [inputs, loadRows, toast]
     )
 
     const hasRows = rows.length > 0
@@ -203,24 +165,24 @@ export default function AddStockPage() {
                         className="py-8 text-center text-sm text-gray-500"
                     >
                         {loading
-                            ? 'Loading ingredients...'
-                            : 'No ingredients found in Sheets.'}
+                            ? 'Loading stock items...'
+                            : 'No inventory units configured yet.'}
                     </TableCell>
                 </TableRow>
             )
         }
         return rows.map((row) => (
-            <TableRow key={row.name}>
+            <TableRow key={row.id}>
                 <TableCell>
                     <span className="font-medium text-gray-900 dark:text-gray-100">
                         {row.name}
                     </span>
                 </TableCell>
-                <TableCell>{row.package || '-'}</TableCell>
-                <TableCell>{row.packageVolume || 0}</TableCell>
-                <TableCell>{row.packageUnits || '-'}</TableCell>
-                <TableCell>{row.addedStock || 0}</TableCell>
-                <TableCell>{row.totalVolume || 0}</TableCell>
+                <TableCell>{row.packageLabel || '-'}</TableCell>
+                <TableCell>{row.unitsPerPackage || 0}</TableCell>
+                <TableCell>{row.unitLabel || '-'}</TableCell>
+                <TableCell>{row.lastRestock?.packages ?? 0}</TableCell>
+                <TableCell>{row.lastRestock?.totalUnits ?? 0}</TableCell>
                 <TableCell>
                     <input
                         type="number"
@@ -228,8 +190,8 @@ export default function AddStockPage() {
                         step="any"
                         inputMode="decimal"
                         className="w-32 rounded-md border border-gray-300 bg-white px-2 py-1 text-sm outline-none dark:border-gray-700 dark:bg-gray-900"
-                        value={inputs[row.name] ?? ''}
-                        onChange={(e) => onChange(row.name, e.target.value)}
+                        value={inputs[row.id] ?? ''}
+                        onChange={(e) => onChange(row.id, e.target.value)}
                         placeholder="0"
                     />
                 </TableCell>
@@ -237,47 +199,47 @@ export default function AddStockPage() {
                     <button
                         className="rounded-md border border-gray-300 px-3 py-1.5 text-sm hover:bg-gray-50 dark:border-gray-700 dark:hover:bg-gray-800 disabled:opacity-50"
                         onClick={() => onAdd(row)}
-                        disabled={saving === row.name}
+                        disabled={savingId === row.id}
                     >
-                        {saving === row.name ? 'Saving...' : 'Add'}
+                        {savingId === row.id ? 'Saving…' : 'Add'}
                     </button>
                 </TableCell>
             </TableRow>
         ))
-    }, [hasRows, inputs, loading, onAdd, onChange, rows, saving])
+    }, [hasRows, inputs, loading, onAdd, onChange, rows, savingId])
 
     return (
         <div className="py-4 sm:py-6">
-            <div className="mb-4">
-                <h1 className="text-lg font-semibold">
-                    Inventory Management / Add Stock
+            <header className="space-y-1">
+                <h1 className="text-2xl font-semibold tracking-tight">
+                    Add Stock
                 </h1>
-                <p className="text-sm text-gray-500">
-                    Review ingredient packages and record additional quantities
-                    received.
+                <p className="text-sm text-muted-foreground">
+                    Record additional packages for each inventory unit.
                 </p>
-            </div>
+            </header>
+
             {error ? (
-                <div className="mb-4 rounded-md border border-red-200 bg-red-50 p-3 text-sm text-red-700 dark:border-red-800 dark:bg-red-950/50 dark:text-red-300">
+                <div className="rounded-md border border-red-200 bg-red-50 p-3 text-sm text-red-700 dark:border-red-900/50 dark:bg-red-950/30 dark:text-red-300">
                     {error}
                 </div>
             ) : null}
-            <div className="rounded-lg border border-gray-200 bg-white shadow-sm dark:border-gray-800 dark:bg-gray-900">
-                <Table>
+
+            <div className="mt-6 overflow-hidden rounded-xl border border-gray-200 dark:border-gray-800">
+                <div className="border-b border-gray-200 bg-gray-50 px-4 py-3 text-sm font-medium text-gray-700 dark:border-gray-800 dark:bg-transparent dark:text-gray-200">
+                    Inventory Units
+                </div>
+                <Table className="min-w-full divide-y divide-gray-200 dark:divide-gray-800">
                     <TableHeader>
                         <TableRow>
-                            <TableHead className="w-[20%]">
-                                Ingredient
-                            </TableHead>
+                            <TableHead>Item</TableHead>
                             <TableHead>Package</TableHead>
-                            <TableHead>Package Volume</TableHead>
-                            <TableHead>Package Units</TableHead>
-                            <TableHead>Added Stock</TableHead>
-                            <TableHead>Total Volume</TableHead>
-                            <TableHead>Purchase In</TableHead>
-                            <TableHead className="w-[8rem] text-right">
-                                Action
-                            </TableHead>
+                            <TableHead>Units / Package</TableHead>
+                            <TableHead>Unit Label</TableHead>
+                            <TableHead>Last Packages</TableHead>
+                            <TableHead>Total Units</TableHead>
+                            <TableHead>Packages to Add</TableHead>
+                            <TableHead></TableHead>
                         </TableRow>
                     </TableHeader>
                     <TableBody>{tableBody}</TableBody>

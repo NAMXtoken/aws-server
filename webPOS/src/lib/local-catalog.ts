@@ -5,7 +5,9 @@ import {
     ingestInventoryItemsFromMenu,
     syncUnitsFromMenuRows,
 } from '@/lib/local-inventory'
-import { isActiveTenantBootstrapped } from '@/lib/tenant-config'
+import { getActiveTenantId, isActiveTenantBootstrapped } from '@/lib/tenant-config'
+import { getSupabaseBrowserClient } from '@/lib/supabase/client'
+import { ensureTenantIdentifiers } from '@/lib/tenant-ids'
 import type { MenuRow, CategoryRow } from '@/types/db'
 
 export async function listMenu(): Promise<MenuRow[]> {
@@ -149,113 +151,100 @@ export async function syncMenuFromRemote(options?: {
     categories: number
 }> {
     try {
-        const freshQuery = options?.fresh ? '&fresh=1' : ''
-        const normalizeDriveImageUrl = (url: string): string => {
-            try {
-                if (!url) return ''
-                const u = new URL(url, 'https://drive.google.com')
-                const host = u.hostname
-                if (
-                    host.includes('drive.google.com') ||
-                    host.includes('drive.usercontent.google.com') ||
-                    host.includes('googleusercontent.com')
-                ) {
-                    const idParam = u.searchParams.get('id')
-                    if (idParam)
-                        return `/api/drive?id=${encodeURIComponent(idParam)}`
-                    const m = u.pathname.match(/\/file\/d\/([^/]+)\//)
-                    if (m && m[1])
-                        return `/api/drive?id=${encodeURIComponent(m[1])}`
-                }
-                return url
-            } catch {
-                return url
+        if (!options?.ignoreBootstrap && !isActiveTenantBootstrapped()) {
+            return {
+                menu: await db.menu_items.count(),
+                categories: await db.categories.count(),
             }
         }
 
-        if (!options?.ignoreBootstrap && !isActiveTenantBootstrapped()) {
-            await db.transaction(
-                'readwrite',
-                db.menu_items,
-                db.categories,
-                async () => {
-                    await db.menu_items.clear()
-                    await db.categories.clear()
-                }
-            )
-            return { menu: 0, categories: 0 }
+        const tenantIdentifier = getActiveTenantId()
+        if (!tenantIdentifier) {
+            return {
+                menu: await db.menu_items.count(),
+                categories: await db.categories.count(),
+            }
         }
 
-        const [menuRes, catRes] = await Promise.all([
-            fetch(`/api/gas?action=menu${freshQuery}`, {
-                cache: 'no-store',
-            }),
-            // Avoid stale categories; do not cache
-            fetch(`/api/gas?action=categories${freshQuery}`, {
-                cache: 'no-store',
-            }),
-        ])
-        const menuData = await menuRes.json().catch(() => [] as any[])
-        const catData = await catRes.json().catch(() => [] as any[])
-        const toArray = (value: any): any[] => {
-            if (Array.isArray(value)) return value
-            if (Array.isArray(value?.items)) return value.items
-            if (Array.isArray(value?.data)) return value.data
-            return []
+        let supabaseId: string | null = null
+        try {
+            const ids = await ensureTenantIdentifiers(tenantIdentifier)
+            supabaseId = ids.supabaseId
+        } catch (identifierError) {
+            console.warn('Unable to derive Supabase tenant ID', identifierError)
+            return {
+                menu: await db.menu_items.count(),
+                categories: await db.categories.count(),
+            }
         }
-        const menuRows: MenuRow[] = toArray(menuData)
-            .map((row: any): MenuRow => {
-                const id = String(
-                    row.id ?? row.ID ?? row.key ?? row.name ?? uuid()
-                ).trim()
-                const rawImage = String(
-                    row.image ?? row.photo ?? row.imageUrl ?? ''
-                )
-                const updatedAt =
-                    Number(
-                        row.updatedAt ??
-                            row.updated_at ??
-                            row.unitsUpdatedAt ??
-                            0
-                    ) || 0
-                const unitsUpdatedAt =
-                    Number(row.unitsUpdatedAt ?? row.updatedAt ?? updatedAt) ||
-                    updatedAt
-                return {
-                    id: id || uuid(),
-                    name: String(row.name ?? row.title ?? ''),
-                    description: String(row.description ?? row.desc ?? ''),
-                    price: Number(row.price ?? row.cost ?? 0) || 0,
-                    image: normalizeDriveImageUrl(rawImage),
-                    category: String(row.category ?? row.group ?? ''),
-                    purchasePrice: Number(row.purchasePrice ?? 0) || 0,
-                    warehouseName: String(row.warehouseName ?? ''),
-                    shelfLifeDays: Number(row.shelfLifeDays ?? 0) || 0,
-                    purchasedUnit: String(row.purchasedUnit ?? ''),
-                    consumeUnit: String(row.consumeUnit ?? ''),
-                    volume: Number(row.volume ?? 0) || 0,
-                    lowStockQty: Number(row.lowStockQty ?? 0) || 0,
-                    ingredients: String(row.ingredients ?? ''),
-                    options: String(row.options ?? ''),
-                    updatedAt,
-                    unitsUpdatedAt,
-                }
+        if (!supabaseId) {
+            return {
+                menu: await db.menu_items.count(),
+                categories: await db.categories.count(),
+            }
+        }
+
+        const supabase = getSupabaseBrowserClient()
+        const { data, error } = await supabase
+            .from('menu_items')
+            .select('*')
+            .eq('tenant_id', supabaseId)
+            .eq('active', true)
+        if (error) {
+            throw error
+        }
+
+        const toNumber = (value: unknown, fallback = 0) => {
+            const parsed = Number(value ?? fallback)
+            return Number.isFinite(parsed) ? parsed : fallback
+        }
+        const toStringValue = (value: unknown) =>
+            typeof value === 'string' ? value : ''
+
+        const menuRows: MenuRow[] = (data ?? []).map((row) => {
+            const metadata =
+                (row.metadata as Record<string, unknown> | null) ?? {}
+            return {
+                id: row.id,
+                name: row.name ?? '',
+                description: row.description ?? '',
+                price: toNumber(row.price),
+                image: toStringValue(metadata.image),
+                category: row.category ?? '',
+                purchasePrice: toNumber(metadata.purchasePrice),
+                warehouseName: toStringValue(metadata.warehouseName),
+                shelfLifeDays: toNumber(metadata.shelfLifeDays),
+                purchasedUnit: toStringValue(metadata.purchasedUnit),
+                consumeUnit: toStringValue(metadata.consumeUnit),
+                volume: toNumber(metadata.volume),
+                lowStockQty: toNumber(metadata.lowStockQty),
+                ingredients: metadata.ingredients
+                    ? JSON.stringify(metadata.ingredients)
+                    : '',
+                options: toStringValue(metadata.options),
+                updatedAt: row.updated_at
+                    ? new Date(row.updated_at).getTime()
+                    : Date.now(),
+                unitsUpdatedAt: row.updated_at
+                    ? new Date(row.updated_at).getTime()
+                    : Date.now(),
+            }
+        })
+
+        const categoryMap = new Map<string, CategoryRow>()
+        for (const item of menuRows) {
+            const value = (item.category || '').trim()
+            if (!value || categoryMap.has(value)) continue
+            categoryMap.set(value, {
+                id: value,
+                label: value
+                    .replace(/[-_]/g, ' ')
+                    .replace(/\b\w/g, (char) => char.toUpperCase()),
+                value,
+                icon: '',
             })
-            .filter((row) => row.name.trim().length > 0)
-        const categoryRows: CategoryRow[] = toArray(catData)
-            .map((row: any): CategoryRow => {
-                const value = String(
-                    row.value ?? row.slug ?? row.label ?? row.name ?? ''
-                ).trim()
-                const id = String((row.id ?? row.ID ?? value) || uuid())
-                return {
-                    id: id || uuid(),
-                    label: String(row.label ?? row.name ?? value),
-                    value: value || id || uuid(),
-                    icon: typeof row.icon === 'string' ? row.icon : '',
-                }
-            })
-            .filter((row) => row.label.trim().length > 0)
+        }
+        const categoryRows = Array.from(categoryMap.values())
 
         const replaceMenu = options?.allowEmpty || menuRows.length > 0
         const replaceCategories = options?.allowEmpty || categoryRows.length > 0
@@ -268,23 +257,27 @@ export async function syncMenuFromRemote(options?: {
                 async () => {
                     if (replaceCategories) {
                         await db.categories.clear()
-                        if (categoryRows.length)
+                        if (categoryRows.length) {
                             await db.categories.bulkPut(categoryRows)
+                        }
                     }
                     if (replaceMenu) {
                         await db.menu_items.clear()
-                        if (menuRows.length)
+                        if (menuRows.length) {
                             await db.menu_items.bulkPut(menuRows)
+                        }
                     }
                 }
             )
         }
+
         if (menuRows.length) {
             await Promise.all([
                 syncUnitsFromMenuRows(menuRows),
                 ingestInventoryItemsFromMenu(menuRows),
             ])
         }
+
         return { menu: menuRows.length, categories: categoryRows.length }
     } catch (error) {
         console.error('syncMenuFromRemote failed', error)

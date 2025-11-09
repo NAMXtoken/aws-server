@@ -3,61 +3,58 @@
 import { useEffect, useMemo, useState } from 'react'
 import { uploadReceiptToDrive } from '@/lib/attachments'
 import { broadcastUpdate } from '@/hooks/use-realtime'
-import { syncMenuFromRemote } from '@/lib/local-catalog'
+import {
+    listCategories,
+    listMenu,
+    syncMenuFromRemote,
+} from '@/lib/local-catalog'
+import { db } from '@/lib/db'
+import {
+    buildMenuMetadataFromRow,
+    upsertMenuItemRemote,
+} from '@/lib/menu-remote'
+import type { MenuRow, CategoryRow } from '@/types/db'
 
-type MenuRow = {
-    id: string
-    name: string
-    price?: number
-    category?: string
+type EditableMenuRow = MenuRow & {
     imageUrl?: string
     _origName?: string
     _origCategory?: string
 }
 
-type Category = { id: string; label: string; value: string }
-
 export default function MenuSettingsPage() {
-    const [items, setItems] = useState<MenuRow[]>([])
+    const [items, setItems] = useState<EditableMenuRow[]>([])
     const [loading, setLoading] = useState(true)
     const [error, setError] = useState<string | null>(null)
     const [uploadingId, setUploadingId] = useState<string | null>(null)
     const [savingId, setSavingId] = useState<string | null>(null)
-    const [categories, setCategories] = useState<Category[]>([])
+    const [categories, setCategories] = useState<CategoryRow[]>([])
 
     useEffect(() => {
         const load = async () => {
             setLoading(true)
             setError(null)
             try {
-                const [menuRes, catRes] = await Promise.all([
-                    fetch(`/api/gas?action=menu`, { cache: 'no-store' }),
-                    fetch(`/api/gas?action=categories`, { cache: 'no-store' }),
+                await syncMenuFromRemote({ ignoreBootstrap: true })
+                const [menuRows, catRows] = await Promise.all([
+                    listMenu(),
+                    listCategories(),
                 ])
-                const menuPayload = await menuRes.json().catch(() => [])
-                const catPayload = await catRes.json().catch(() => [])
-                const arr: any[] = Array.isArray(menuPayload)
-                    ? menuPayload
-                    : menuPayload?.items || []
-                const mapped: MenuRow[] = (arr || []).map((r) => ({
-                    id: String(r.id ?? r.sku ?? r.code ?? r.name ?? ''),
-                    name: String(r.name ?? r.title ?? r.item ?? ''),
-                    price: Number(r.price ?? r.unitPrice ?? 0) || 0,
-                    category: r.category ? String(r.category) : '',
-                    imageUrl: String(r.image ?? r.photo ?? r.imageUrl ?? ''),
-                    _origName: String(r.name ?? r.title ?? r.item ?? ''),
-                    _origCategory: r.category ? String(r.category) : '',
+                const mapped: EditableMenuRow[] = menuRows.map((row) => ({
+                    ...row,
+                    price: Number(row.price || 0),
+                    imageUrl: row.image,
+                    _origName: row.name,
+                    _origCategory: row.category ?? '',
                 }))
                 setItems(mapped)
-                const cArr: any[] = Array.isArray(catPayload)
-                    ? catPayload
-                    : catPayload?.items || []
-                const cats: Category[] = (cArr || []).map((c) => ({
-                    id: String(c.id || c.value || c.label || ''),
-                    label: String(c.label || c.value || c.id || ''),
-                    value: String(c.value || c.label || c.id || ''),
-                }))
-                setCategories(cats)
+                setCategories(
+                    catRows.map((c) => ({
+                        id: c.id,
+                        label: c.label,
+                        value: c.value,
+                        icon: c.icon,
+                    }))
+                )
             } catch (e) {
                 setError(String((e as Error)?.message || e))
             } finally {
@@ -77,28 +74,31 @@ export default function MenuSettingsPage() {
             setItems((prev) =>
                 prev.map((it) => (it.id === id ? { ...it, imageUrl: url } : it))
             )
-            // Persist URL to sheet (GAS handler)
-            const match = items.find((i) => i.id === id)
-            await fetch('/api/gas', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    action: 'setMenuImage',
-                    id,
-                    url,
-                    matchName: match?._origName || match?.name,
-                    matchCategory:
-                        match?._origCategory || match?.category || '',
-                }),
-            }).catch(() => undefined)
-            try {
-                await syncMenuFromRemote({
-                    ignoreBootstrap: true,
+            const existing = await db.menu_items.get(id)
+            if (existing) {
+                await db.menu_items.put({
+                    ...existing,
+                    image: url,
+                    updatedAt: Date.now(),
+                    unitsUpdatedAt: Date.now(),
                 })
-            } catch {}
-            try {
-                broadcastUpdate('inventory')
-            } catch {}
+                try {
+                    await upsertMenuItemRemote({
+                        id,
+                        name: existing.name,
+                        price: existing.price,
+                        category: existing.category,
+                        metadata: {
+                            ...buildMenuMetadataFromRow(existing),
+                            image: url,
+                        },
+                    })
+                    await syncMenuFromRemote({ ignoreBootstrap: true })
+                    broadcastUpdate('inventory')
+                } catch (syncErr) {
+                    console.warn('Failed to sync menu image:', syncErr)
+                }
+            }
         } catch (e) {
             setError(String((e as Error)?.message || e))
         } finally {
@@ -129,28 +129,29 @@ export default function MenuSettingsPage() {
         if (!row) return
         try {
             setSavingId(id)
-            const payload = {
-                action: 'saveMenuItem',
-                id,
+            const existing = await db.menu_items.get(id)
+            if (!existing) throw new Error('Menu item not found locally')
+            const updated: MenuRow = {
+                ...existing,
                 name: row.name,
-                price: Number(row.price || 0),
+                price: Number(row.price || 0) || 0,
                 category: row.category || '',
-                matchName: row._origName || row.name,
-                matchCategory: row._origCategory || row.category || '',
+                image: row.imageUrl || existing.image || '',
+                updatedAt: Date.now(),
+                unitsUpdatedAt: Date.now(),
             }
-            const res = await fetch('/api/gas', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(payload),
+            await db.menu_items.put(updated)
+            await upsertMenuItemRemote({
+                id,
+                name: updated.name,
+                price: updated.price,
+                category: updated.category,
+                metadata: {
+                    ...buildMenuMetadataFromRow(updated),
+                    image: updated.image,
+                },
             })
-            const json = await res.json().catch(() => ({}))
-            if (!res.ok || json?.ok === false)
-                throw new Error(String(json?.error || res.statusText))
-            try {
-                await syncMenuFromRemote({
-                    ignoreBootstrap: true,
-                })
-            } catch {}
+            await syncMenuFromRemote({ ignoreBootstrap: true })
             try {
                 broadcastUpdate('inventory')
             } catch {}
