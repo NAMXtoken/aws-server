@@ -3,7 +3,7 @@ This workspace contains four collaborating components that together deliver the 
 
 # Instructions for Agents
 - When making any changes in any of the four directories mentioned in this AGENTS.md, you should find or create a file called 'context.md' within the directory root.
-- After changes have been made in the directory, you should add a 1-line summary of the changes that you have made to the context.md file. Prepend your 1-line summary with a timestamp in "dd/mm hh:mm" format, followed by the current 'session_id'.
+- After changes have been made in the directory, you should add a 1-line summary of the changes that you have made to the context.md file. Prepend your 1-line summary with a timestamp in "dd/mm hh:mm" format.
 - Each one of the four directories mentioned in this AGENTS.md has its own AGENTS.md for directory specific guidelines.
 - When an agent is given a new task/prompt, any and all changes should be carried out by the agent that received the task/prompt.
 - Agents should never issue instructions on how to complete the task/prompt if the agent can complete the tasks themself, unassisted.

@@ -13,8 +13,7 @@
             "dom.iterable",
             "es2023"
         ],
-        "module": "esnext",
-        "moduleResolution": "bundler",
+        "moduleResolution": "node",
         "noEmit": true,
         "paths": {
             "@/*": [

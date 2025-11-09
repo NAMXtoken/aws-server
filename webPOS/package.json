@@ -5,10 +5,10 @@
   "packageManager": "pnpm@10.20.0",
   "scripts": {
     "dev": "next dev --hostname 0.0.0.0",
-    "build": "next build",
+    "build": "NODE_OPTIONS=--max-old-space-size=1536 next build",
     "start": "next start",
-    "lint": "eslint .",
-    "typecheck": "tsc --noEmit",
+    "lint": "NODE_OPTIONS=--max-old-space-size=1536 eslint .",
+    "typecheck": "NODE_OPTIONS=--max-old-space-size=1536 tsc --noEmit",
     "format": "pnpm exec prettier . --write"
   },
   "dependencies": {

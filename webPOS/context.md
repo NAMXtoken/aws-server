@@ -130,3 +130,4 @@
 10/11 00:45 conversation-unknown Gave toasts solid backgrounds via inline styles and removed the inventory bootstrapping guard from TicketView’s realtime handler so /sales updates whenever local menu data changes.
 09/11 23:44 conversation-unknown Removed the remaining GAS calls from the inventory editors, persisted new menu items directly to Dexie + Supabase, and taught the catalog sync to hydrate from Supabase tenants so /sales and /inventory stay aligned across reloads.
 10/11 00:58 conversation-unknown Rewired inventory add-stock/menu-settings flows to use Dexie + Supabase (no GAS), introduced shared Supabase menu upsert helpers, and subscribed TenantProvider to menu_items realtime updates to keep Android caches fresh.
+10/11 03:19 conversation-unknown Ensured the sidebar always executes its hooks before short-circuiting on mobile so lint rules are satisfied.

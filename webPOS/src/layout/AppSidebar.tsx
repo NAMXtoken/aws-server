@@ -69,10 +69,6 @@ const AppSidebar: React.FC<AppSidebarProps> = ({ role }) => {
         useSidebar()
     const pathname = usePathname()
 
-    if (isMobile) {
-        return null
-    }
-
     const limitedMainItems = useMemo(
         () =>
             role === 'limited'
@@ -165,6 +161,10 @@ const AppSidebar: React.FC<AppSidebarProps> = ({ role }) => {
             })
         })
     }, [openSubmenu, isExpanded, isHovered, isMobileOpen])
+
+    if (isMobile) {
+        return null
+    }
 
     const handleSubmenuToggle = (
         index: number,
